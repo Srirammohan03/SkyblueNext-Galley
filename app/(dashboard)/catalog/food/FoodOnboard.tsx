@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import axios from "axios";
 
@@ -17,8 +17,54 @@ import {
 
 import { cn } from "@/lib/utils";
 
-async function fetchFlights() {
-  const res = await axios.get("/api/flights");
+function useDebounce<T>(value: T, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+async function fetchFlights({
+  signal,
+  search,
+  status,
+  startDate,
+  endDate,
+}: {
+  signal: AbortSignal;
+  search: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (search) {
+    params.append("search", search);
+  }
+
+  if (status && status !== "All") {
+    params.append("status", status);
+  }
+
+  if (startDate) {
+    params.append("startDate", startDate);
+  }
+
+  if (endDate) {
+    params.append("endDate", endDate);
+  }
+
+  const res = await axios.get(`/api/flights?${params.toString()}`, {
+    signal,
+  });
 
   return res.data;
 }
@@ -30,51 +76,50 @@ export default function FoodOnboard() {
 
   const [statusFilter, setStatusFilter] = useState("All");
 
-  const { data: flights = [], isLoading } = useQuery({
-    queryKey: ["food-onboard-flights"],
-    queryFn: fetchFlights,
+  const [startDate, setStartDate] = useState("");
+
+  const [endDate, setEndDate] = useState("");
+
+  const debouncedSearch = useDebounce(search, 500);
+
+  const {
+    data: flights = [],
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: [
+      "food-onboard-flights",
+      debouncedSearch,
+      statusFilter,
+      startDate,
+      endDate,
+    ],
+
+    queryFn: ({ signal }) =>
+      fetchFlights({
+        signal,
+        search: debouncedSearch,
+        status: statusFilter,
+        startDate,
+        endDate,
+      }),
+
+    staleTime: 1000 * 60,
   });
 
-  const filteredFlights = useMemo(() => {
-    return flights
-      .map((flight: any) => ({
-        ...flight,
+  const filteredFlights = flights
+    .map((flight: any) => ({
+      ...flight,
 
-        items: flight.items?.filter((item: any) => item.type === "food") || [],
-      }))
-      .filter(
-        (flight: any) => Array.isArray(flight.items) && flight.items.length > 0,
-      )
-      .filter((flight: any) => {
-        const searchValue = search.toLowerCase();
-
-        const matchesSearch =
-          !search ||
-          flight.flightNumber?.toLowerCase().includes(searchValue) ||
-          flight.departure?.toLowerCase().includes(searchValue) ||
-          flight.arrival?.toLowerCase().includes(searchValue) ||
-          flight.tailNumber?.toLowerCase().includes(searchValue);
-
-        const matchesStatus =
-          statusFilter === "All" ? true : flight.status === statusFilter;
-
-        return matchesSearch && matchesStatus;
-      });
-  }, [flights, search, statusFilter]);
+      items: flight.items?.filter((item: any) => item.type === "food") || [],
+    }))
+    .filter(
+      (flight: any) => Array.isArray(flight.items) && flight.items.length > 0,
+    );
 
   const toggleAccordion = (flightId: string) => {
     setOpenFlightId((prev) => (prev === flightId ? null : flightId));
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-sm font-medium text-slate-500">
-          Loading onboard food orders...
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="pb-10">
@@ -88,7 +133,7 @@ export default function FoodOnboard() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+        <div className="flex flex-wrap items-end gap-3 w-full lg:w-auto">
           {/* SEARCH */}
           <div className="relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -98,83 +143,87 @@ export default function FoodOnboard() {
               placeholder="Search flights..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="
-                h-11
-                w-full
-                sm:w-[260px]
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                pl-10
-                pr-4
-                text-sm
-                outline-none
-                transition-all
-                focus:border-[#1868A5]
-                focus:ring-4
-                focus:ring-[#1868A5]/10
-              "
+              className="h-11 w-full sm:w-[260px] rounded-2xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition-all focus:border-[#1868A5] focus:ring-4 focus:ring-[#1868A5]/10"
             />
           </div>
 
           {/* STATUS */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="
-              h-11
-              rounded-2xl
-              border
-              border-slate-200
-              bg-white
-              px-4
-              text-sm
-              outline-none
-            "
-          >
-            <option value="All">All Status</option>
+          <div className="flex flex-col gap-1">
+            <label className="pl-1 text-xs font-medium text-slate-500">
+              Status
+            </label>
 
-            <option value="Draft">Draft</option>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-11 min-w-[180px] rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition-all focus:border-[#1868A5] focus:ring-4 focus:ring-[#1868A5]/10"
+            >
+              <option value="All">All Status</option>
+              <option value="Draft">Draft</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Approved">Approved</option>
+              <option value="Completed">Completed</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Cancelled">Cancelled</option>
+              <option value="Rejected">Rejected</option>
+              <option value="SentToVendor">Sent To Vendor</option>
+            </select>
+          </div>
 
-            <option value="Submitted">Submitted</option>
+          {/* START DATE */}
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="startdate"
+              className="pl-1 text-xs font-medium text-slate-500"
+            >
+              Start Date
+            </label>
 
-            <option value="Approved">Approved</option>
+            <input
+              id="startdate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition-all focus:border-[#1868A5] focus:ring-4 focus:ring-[#1868A5]/10"
+            />
+          </div>
 
-            <option value="Completed">Completed</option>
+          {/* END DATE */}
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="enddate"
+              className="pl-1 text-xs font-medium text-slate-500"
+            >
+              End Date
+            </label>
 
-            <option value="Confirmed">Confirmed</option>
-
-            <option value="Cancelled">Cancelled</option>
-
-            <option value="Rejected">Rejected</option>
-
-            <option value="SentToVendor">Sent To Vendor</option>
-          </select>
+            <input
+              id="enddate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition-all focus:border-[#1868A5] focus:ring-4 focus:ring-[#1868A5]/10"
+            />
+          </div>
 
           {/* CLEAR */}
           <button
             onClick={() => {
               setSearch("");
               setStatusFilter("All");
+              setStartDate("");
+              setEndDate("");
             }}
-            className="
-              h-11
-              rounded-2xl
-              border
-              border-slate-200
-              bg-white
-              px-5
-              text-sm
-              font-semibold
-              text-slate-700
-              hover:bg-slate-100
-            "
+            className="h-11 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
           >
             Clear Filters
           </button>
         </div>
       </div>
+
+      {isFetching && !isLoading && (
+        <div className="mb-4 text-sm text-slate-500">Updating flights...</div>
+      )}
 
       {/* FLIGHTS */}
       <div className="space-y-5">
