@@ -702,7 +702,7 @@ export default function VendorsPage() {
                         contactPerson: e.target.value,
                       })
                     }
-                    placeholder="Ahmed Al-Rashid"
+                    placeholder="Sriram..."
                     className="h-11 rounded-xl"
                   />
                   {errors.contactPerson && (
