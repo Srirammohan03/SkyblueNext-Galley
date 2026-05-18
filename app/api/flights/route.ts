@@ -1,79 +1,21 @@
 // app/api/flights/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { searchParams } = new URL(req.url);
-
-    const search = searchParams.get("search") || "";
-
-    const status = searchParams.get("status") || "";
-
-    const startDate = searchParams.get("startDate");
-
-    const endDate = searchParams.get("endDate");
-
     const flights = await prisma.flightOrder.findMany({
-      where: {
-        ...(search && {
-          OR: [
-            {
-              flightNumber: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-
-            {
-              departure: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-
-            {
-              arrival: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-
-            {
-              tailNumber: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-          ],
-        }),
-
-        ...(status &&
-          status !== "All" && {
-            status: status as any,
-          }),
-
-        ...((startDate || endDate) && {
-          date: {
-            ...(startDate && {
-              gte: new Date(startDate),
-            }),
-
-            ...(endDate && {
-              lte: new Date(`${endDate}T23:59:59.999Z`),
-            }),
-          },
-        }),
-      },
-
       include: {
         creator: {
           select: {
@@ -101,17 +43,6 @@ export async function GET(req: NextRequest) {
             name: true,
           },
         },
-
-        items: {
-          include: {
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
       },
 
       orderBy: {
@@ -122,15 +53,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(flights);
   } catch (error) {
     console.error("GET FLIGHTS ERROR:", error);
-
-    return NextResponse.json(
-      {
-        error: "Failed to fetch flights",
-      },
-      {
-        status: 500,
-      },
-    );
+    return NextResponse.json([], {
+      status: 200,
+    });
   }
 }
 
@@ -160,7 +85,7 @@ export async function POST(req: Request) {
       serviceStyleNotes,
       specialInstructions,
       deliveryDate,
-      deliveryTime,
+      deliveryTime
     } = body;
 
     // VALIDATIONS
@@ -232,31 +157,31 @@ export async function POST(req: Request) {
         items: {
           create: Array.isArray(items)
             ? items.map((item: any) => ({
-                itemId: item.itemId || "custom",
+              itemId: item.itemId || "custom",
 
-                vendorId: item.vendorId || null,
+              vendorId: item.vendorId || null,
 
-                name: item.name || "Custom Item",
+              name: item.name || "Custom Item",
 
-                type: item.type || "custom",
+              type: item.type || "custom",
 
-                quantity: Number(item.quantity) || 1,
+              quantity: Number(item.quantity) || 1,
 
-                notes: item.notes || "",
+              notes: item.notes || "",
 
-                unit: item.unit || "",
+              unit: item.unit || "",
 
-                category: item.category || "",
+              category: item.category || "",
 
-                price:
-                  item.price !== undefined && item.price !== null
-                    ? Number(item.price)
-                    : null,
+              price:
+                item.price !== undefined && item.price !== null
+                  ? Number(item.price)
+                  : null,
 
-                dietaryTags: Array.isArray(item.dietaryTags)
-                  ? item.dietaryTags
-                  : [],
-              }))
+              dietaryTags: Array.isArray(item.dietaryTags)
+                ? item.dietaryTags
+                : [],
+            }))
             : [],
         },
       },

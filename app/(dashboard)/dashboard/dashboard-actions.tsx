@@ -1,13 +1,14 @@
-// app\flights\page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Plus, Plane, X } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
+import { Plus, PlaneTakeoff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import {
   Select,
   SelectContent,
@@ -15,16 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
-export default function FlightsPage() {
-  const [flights, setFlights] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function DashboardActions() {
+  const router = useRouter();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [errors, setErrors] = useState<any>({});
-  const router = useRouter();
+
   const emptyFlight = {
     date: new Date().toISOString().slice(0, 10),
     departureTime: "",
@@ -41,31 +41,9 @@ export default function FlightsPage() {
     specialInstructions: "",
     status: "Draft",
   };
-  const [newFlight, setNewFlight] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    departureTime: "",
-    departure: "",
-    arrival: "",
-    flightNumber: "",
-    tailNumber: "",
-    paxCount: 1,
-    crewCount: 1,
-    timezone: "IST (UTC+5:30)",
-    pickupLocation: "",
-    dietaryNotes: "",
-    serviceStyleNotes: "",
-    specialInstructions: "",
-    status: "Draft",
-  });
 
-  useEffect(() => {
-    fetch("/api/flights")
-      .then((res) => res.json())
-      .then((data) => {
-        setFlights(data);
-        setLoading(false);
-      });
-  }, []);
+  const [newFlight, setNewFlight] = useState(emptyFlight);
+
   const validateFlight = () => {
     const newErrors: any = {};
 
@@ -75,32 +53,17 @@ export default function FlightsPage() {
 
     if (!newFlight.departure.trim()) {
       newErrors.departure = "Departure airport required";
-    } else if (!/^[A-Z]{3,4}$/i.test(newFlight.departure)) {
-      newErrors.departure = "Use valid IATA/ICAO code";
     }
 
     if (!newFlight.arrival.trim()) {
       newErrors.arrival = "Arrival airport required";
-    } else if (!/^[A-Z]{3,4}$/i.test(newFlight.arrival)) {
-      newErrors.arrival = "Use valid IATA/ICAO code";
-    }
-
-    if (newFlight.departure.toUpperCase() === newFlight.arrival.toUpperCase()) {
-      newErrors.arrival = "Arrival airport must differ from departure";
-    }
-
-    if (newFlight.paxCount < 0) {
-      newErrors.paxCount = "Invalid passenger count";
-    }
-
-    if (newFlight.crewCount < 0) {
-      newErrors.crewCount = "Invalid crew count";
     }
 
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
   };
+
   const handleCreateFlight = async () => {
     const isValid = validateFlight();
 
@@ -111,9 +74,11 @@ export default function FlightsPage() {
 
       const res = await fetch("/api/flights", {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify({
           ...newFlight,
           departure: newFlight.departure.toUpperCase(),
@@ -133,6 +98,7 @@ export default function FlightsPage() {
       setNewFlight(emptyFlight);
 
       router.push(`/flights/${data.id}`);
+      router.refresh();
     } catch (error: any) {
       console.error(error);
       alert(error.message);
@@ -140,144 +106,37 @@ export default function FlightsPage() {
       setSaving(false);
     }
   };
-  const upcomingFlights = flights.filter((f) => new Date(f.date) >= new Date());
-  const pastFlights = flights.filter((f) => new Date(f.date) < new Date());
-
-  const renderFlightCard = (flight: any) => {
-    const date = new Date(flight.date);
-    return (
-      <div
-        key={flight.id}
-        className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4"
-      >
-        <div className="flex items-center gap-4 sm:gap-6">
-          <div className="text-center w-12 sm:w-16 shrink-0">
-            <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-semibold">
-              {date.toLocaleString("default", { month: "short" })}
-            </p>
-            <p className="text-xl sm:text-2xl font-bold text-slate-900">
-              {date.getDate()}
-            </p>
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                {flight.departure}{" "}
-                <Plane className="w-3 h-3 sm:w-4 sm:h-4 inline mx-1 text-slate-400" />{" "}
-                {flight.arrival}
-              </h3>
-              <span className="text-xs sm:text-sm font-medium text-slate-500">
-                {flight.flightNumber}
-              </span>
-              <span
-                className={cn(
-                  `
-      inline-flex
-      items-center
-      rounded-full
-      px-3
-      py-1
-      text-[11px]
-      font-semibold
-      tracking-wide
-      border
-    `,
-
-                  flight.status === "Approved" &&
-                    "bg-emerald-100 text-emerald-700 border-emerald-200",
-
-                  flight.status === "Rejected" &&
-                    "bg-red-100 text-red-700 border-red-200",
-
-                  flight.status === "Draft" &&
-                    "bg-orange-100 text-orange-700 border-orange-200",
-
-                  flight.status === "Submitted" &&
-                    "bg-sky-100 text-sky-700 border-sky-200",
-
-                  flight.status === "Completed" &&
-                    "bg-blue-100 text-blue-700 border-blue-200",
-
-                  flight.status === "SentToVendor" &&
-                    "bg-violet-100 text-violet-700 border-violet-200",
-
-                  flight.status === "Confirmed" &&
-                    "bg-cyan-100 text-cyan-700 border-cyan-200",
-
-                  flight.status === "Cancelled" &&
-                    "bg-slate-200 text-slate-700 border-slate-300",
-                )}
-              >
-                {flight.status}
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500">
-              {flight.departureTime ||
-                date.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}{" "}
-              • {flight.paxCount} pax • {flight.crewCount} crew •{" "}
-              {flight.tailNumber}
-            </p>
-          </div>
-        </div>
-        <Link
-          href={`/flights/${flight.id}`}
-          className="w-full sm:w-auto text-center px-4 py-2 bg-slate-100 text-slate-700 rounded-md hover:bg-[#1868A5] hover:text-white text-sm font-medium"
-        >
-          Manage Order
-        </Link>
-      </div>
-    );
-  };
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Flights</h1>
-          <p className="text-slate-500">
-            {upcomingFlights.length} upcoming flights
-          </p>
-        </div>
-        <button
+    <>
+      <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+        <Button
           onClick={() => setIsModalOpen(true)}
-          className="w-full sm:w-auto bg-[#1868A5] text-white px-4 py-2 rounded-md flex items-center justify-center gap-2 text-sm"
+          className="
+            w-full
+            sm:w-auto
+            bg-[#1868A5]
+            hover:bg-[#14598f]
+            text-white
+            rounded-2xl
+            h-12
+            px-6
+            font-semibold
+          "
         >
-          <Plus className="w-4 h-4" /> Add Flight
-        </button>
-      </div>
+          <Plus className="w-4 h-4 mr-2" />
+          New Flight
+        </Button>
 
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">
-            Upcoming Flights
-          </h2>
-          <div className="space-y-4">
-            {loading ? (
-              <div className="text-center text-slate-500">Loading...</div>
-            ) : (
-              upcomingFlights.map(renderFlightCard)
-            )}
-            {upcomingFlights.length === 0 && !loading && (
-              <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">
-                No upcoming flights found.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {pastFlights.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">
-              Past Flights
-            </h2>
-            <div className="space-y-4 opacity-75">
-              {pastFlights.map(renderFlightCard)}
-            </div>
-          </div>
-        )}
+        <Link href="/flights" className="w-full sm:w-auto">
+          <Button
+            variant="outline"
+            className="w-full rounded-2xl h-12 px-6 font-semibold"
+          >
+            <PlaneTakeoff className="w-4 h-4 mr-2" />
+            View Flights
+          </Button>
+        </Link>
       </div>
 
       {isModalOpen && (
@@ -523,20 +382,20 @@ export default function FlightsPage() {
                     }
                     placeholder="1 pax halal..."
                     className="
-          min-h-[120px]
-          w-full
-          rounded-2xl
-          border
-          border-input
-          bg-background
-          px-4
-          py-3
-          text-sm
-          outline-none
-          transition-all
-          focus:ring-2
-          focus:ring-ring
-        "
+                min-h-[120px]
+                w-full
+                rounded-2xl
+                border
+                border-input
+                bg-background
+                px-4
+                py-3
+                text-sm
+                outline-none
+                transition-all
+                focus:ring-2
+                focus:ring-ring
+              "
                   />
                 </div>
 
@@ -553,20 +412,20 @@ export default function FlightsPage() {
                     }
                     placeholder="Full breakfast setup..."
                     className="
-          min-h-[120px]
-          w-full
-          rounded-2xl
-          border
-          border-input
-          bg-background
-          px-4
-          py-3
-          text-sm
-          outline-none
-          transition-all
-          focus:ring-2
-          focus:ring-ring
-        "
+                min-h-[120px]
+                w-full
+                rounded-2xl
+                border
+                border-input
+                bg-background
+                px-4
+                py-3
+                text-sm
+                outline-none
+                transition-all
+                focus:ring-2
+                focus:ring-ring
+              "
                   />
                 </div>
               </div>
@@ -585,20 +444,20 @@ export default function FlightsPage() {
                   }
                   placeholder="Birthday cake for VIP passenger..."
                   className="
-        min-h-[120px]
-        w-full
-        rounded-2xl
-        border
-        border-input
-        bg-background
-        px-4
-        py-3
-        text-sm
-        outline-none
-        transition-all
-        focus:ring-2
-        focus:ring-ring
-      "
+              min-h-[120px]
+              w-full
+              rounded-2xl
+              border
+              border-input
+              bg-background
+              px-4
+              py-3
+              text-sm
+              outline-none
+              transition-all
+              focus:ring-2
+              focus:ring-ring
+            "
                 />
               </div>
             </div>
@@ -623,6 +482,6 @@ export default function FlightsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
