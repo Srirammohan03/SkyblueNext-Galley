@@ -269,6 +269,16 @@ export default function DashboardLayout({
             <span className="ml-3 text-sm font-medium">Sign Out</span>
           )}
         </Button>
+        <p className="mt-10 text-center text-sm text-gray-500 lg:hidden">
+          © {new Date().getFullYear()} RS Fisheries. All rights reserved.{" "}
+          Powered by{" "}
+          <Link
+            href="https://www.outrightcreators.com/"
+            className="font-medium text-[#139BC3] hover:underline"
+          >
+            Outright Creators
+          </Link>
+        </p>
       </div>
     </div>
   );

@@ -30,6 +30,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta
+          name="developer"
+          content="Sriram Mohan && Nithish && FouziaSumbul"
+        />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <QueryProvider>{children}</QueryProvider>

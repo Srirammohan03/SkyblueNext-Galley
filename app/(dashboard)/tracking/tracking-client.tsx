@@ -418,14 +418,12 @@ export default function TrackingClient({ orders }: Props) {
     setRestoreOrder(order);
 
     setRestoreItems(
-      order.items
-        .filter((item: any) => {
-          const isGlobalItem =
-            item.itemId && item.itemId !== "custom" && !item.vendorId;
-
-          const isGrocery = item.type?.toLowerCase() === "grocery";
-
-          return isGlobalItem && isGrocery;
+      order?.items
+        ?.filter((item: any) => {
+          return (
+            item?.type?.toLowerCase() === "grocery" ||
+            item?.category?.toLowerCase() === "grocery"
+          );
         })
         .map((item: any) => {
           const alreadyRestored = (order.restoredItems || [])
@@ -1480,15 +1478,15 @@ export default function TrackingClient({ orders }: Props) {
             </div>
 
             <div className="px-7 py-2 overflow-y-auto flex-1 space-y-2.5">
-              {restoreItems.length === 0 ? (
+              {restoreItems?.length === 0 ? (
                 <div className="py-10 flex flex-col items-center justify-center text-slate-400">
                   <Package className="w-8 h-8 mb-2" />
                   <p className="text-sm">No items found for this order.</p>
                 </div>
               ) : (
-                restoreItems.map((item) => (
+                restoreItems?.map((item) => (
                   <div
-                    key={item.id}
+                    key={item?.id}
                     className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
                   >
                     <div className="flex-1 min-w-0">
