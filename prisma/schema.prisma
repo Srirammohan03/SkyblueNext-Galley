@@ -3,9 +3,155 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  password       String
+  name           String
+  role           UserRole      @default(crew)
+  status         UserStatus    @default(Active)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  permissions    String[]      @default([])
+  image          String?
+  ordersApproved FlightOrder[] @relation("ApprovedBy")
+  ordersCreated  FlightOrder[] @relation("CreatedBy")
+  ordersRejected FlightOrder[] @relation("RejectedBy")
+}
+
+model FlightOrder {
+  id                  String         @id @default(cuid())
+  flightNumber        String
+  tailNumber          String
+  departure           String
+  arrival             String
+  date                DateTime
+  departureTime       String?
+  timezone            String?
+  paxCount            Int
+  crewCount           Int
+  dietaryNotes        String?
+  serviceStyleNotes   String?
+  specialInstructions String?
+  pickupLocation      String?
+  status              OrderStatus    @default(Draft)
+  rejectionReason     String?
+  billUrl             String?
+  billAmount          Float?
+  billNotes           String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  vendorId            String?
+  createdBy           String
+  approvedBy          String?
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  rejectedBy          String?
+  deliveryDate        String?
+  deliveryTime        String?
+  cancelReason        String?
+  cancelledAt         DateTime?
+  approver            User?          @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  creator             User           @relation("CreatedBy", fields: [createdBy], references: [id])
+  rejector            User?          @relation("RejectedBy", fields: [rejectedBy], references: [id])
+  vendor              Vendor?        @relation(fields: [vendorId], references: [id])
+  items               OrderItem[]
+  restoredItems       RestoredItem[]
+}
+
+model OrderItem {
+  id               String       @id @default(cuid())
+  itemId           String?
+  name             String
+  type             String
+  category         String?
+  quantity         Int
+  notes            String?
+  price            Float?
+  unit             String?
+  dietaryTags      String[]
+  orderId          String
+  createdAt        DateTime     @default(now())
+  vendorId         String?
+  currency         String?      @default("INR")
+  vendorName       String?
+  consumedQuantity Int          @default(0)
+  restoredQuantity Int          @default(0)
+  CatalogItem      CatalogItem? @relation(fields: [itemId], references: [id])
+  order            FlightOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor           Vendor?      @relation(fields: [vendorId], references: [id])
+}
+
+model RestoredItem {
+  id            String      @id @default(cuid())
+  flightOrderId String
+  itemId        String
+  returnedQty   Int
+  restoredBy    String?
+  restoredAt    DateTime    @default(now())
+  flightOrder   FlightOrder @relation(fields: [flightOrderId], references: [id], onDelete: Cascade)
+}
+
+model Vendor {
+  id              String           @id @default(cuid())
+  name            String
+  contactPerson   String
+  phone           String
+  email           String
+  address         String
+  serviceAirports String[]
+  deliveryOptions String[]
+  notes           String?
+  currency        String           @default("USD")
+  taxNotes        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  orders          FlightOrder[]
+  orderItems      OrderItem[]
+  menuItems       VendorMenuItem[]
+}
+
+model VendorMenuItem {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  price         Float
+  currency      String   @default("INR")
+  category      String
+  dietaryTags   String[]
+  allergens     String[]
+  catalogItemId String?
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  vendorId      String
+  type          String   @default("food")
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model CatalogItem {
+  id          String      @id @default(cuid())
+  name        String
+  type        String
+  category    String
+  subcategory String?
+  unit        String
+  dietaryTags String[]
+  allergens   String[]
+  defaultQty  Int?
+  isFavorite  Boolean     @default(false)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  currency    String      @default("INR")
+  isAvailable Boolean     @default(true)
+  price       Float?      @default(0)
+  stock       Int         @default(0)
+  OrderItem   OrderItem[]
 }
 
 enum UserRole {
@@ -21,198 +167,14 @@ enum UserStatus {
   Inactive
 }
 
-model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  name      String
-image       String?
-  role      UserRole   @default(crew)
-
-permissions String[] @default([])
-
-  status    UserStatus @default(Active)
-
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
- ordersCreated  FlightOrder[] @relation("CreatedBy")
-
-ordersApproved FlightOrder[] @relation("ApprovedBy")
-
-ordersRejected FlightOrder[] @relation("RejectedBy")
-}
-
 enum OrderStatus {
   Draft
   Submitted
   Approved
   SentToVendor
   Confirmed
-  Delivered
   Completed
   Rejected
   Cancelled
-}
-
-model FlightOrder {
-  id                  String      @id @default(cuid())
-  flightNumber        String
-  tailNumber          String
-  departure           String
-  arrival             String
-  date                DateTime
-  departureTime       String?
-  timezone            String?
-  paxCount            Int
-  crewCount           Int
-  dietaryNotes        String?
-  serviceStyleNotes   String?
-  specialInstructions String?
-  pickupLocation      String?
-
-  deliveryDate String?
-
-  deliveryTime String?
-
-  status              OrderStatus @default(Draft)
-  rejectionReason     String?
-  billUrl             String?
-  billAmount          Float?
-  billNotes           String?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-
-  vendorId String?
-  vendor   Vendor? @relation(fields: [vendorId], references: [id])
-
-  createdBy  String
-  creator    User    @relation("CreatedBy", fields: [createdBy], references: [id])
-  approvedBy String?
-  approvedAt DateTime?
-  approver   User?   @relation("ApprovedBy", fields: [approvedBy], references: [id])
-  rejectedBy String?
-  rejectedAt DateTime?
-  rejector   User?   @relation("RejectedBy", fields: [rejectedBy], references: [id])
-
-  cancelReason String?
-  cancelledAt  DateTime?
-
-  items OrderItem[]
-
-  restoredItems RestoredItem[]
-}
-
-model OrderItem {
-  id String @id @default(cuid())
-
-  itemId      String
-  name        String
-  type        String
-  category    String?
-  quantity    Int
-  notes       String?
-  price       Float?
-  currency    String? @default("INR")
-  vendorName  String?
-
-  unit        String?
-  dietaryTags String[]
-
-  restoredQuantity Int @default(0)
-
-  consumedQuantity Int @default(0)
-
-  orderId String
-  order   FlightOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  vendorId String?
-  vendor   Vendor? @relation(fields: [vendorId], references: [id])
-
-  createdAt DateTime @default(now())
-}
-model RestoredItem {
-  id            String   @id @default(cuid())
-
-  flightOrderId String
-
-  itemId        String
-
-  returnedQty   Int
-
-  restoredBy    String?
-
-  restoredAt    DateTime @default(now())
-
-  flightOrder FlightOrder @relation(fields: [flightOrderId], references: [id], onDelete: Cascade)
-}
-
-model Vendor {
-  id              String   @id @default(cuid())
-  name            String
-  contactPerson   String
-  phone           String
-  email           String
-  address         String
-  serviceAirports String[]
-  deliveryOptions String[]
-  notes           String?
-  currency        String   @default("USD")
-  taxNotes        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  menuItems  VendorMenuItem[]
-  orders     FlightOrder[]
-  orderItems OrderItem[]
-}
-
-model VendorMenuItem {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
-  price         Float
-    type          String   @default("food")
-  currency      String   @default("INR")
-  category      String
-  dietaryTags   String[]
-  allergens     String[]
-  catalogItemId String?
-  isAvailable   Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  vendorId String
-  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-}
-model CatalogItem {
-  id          String   @id @default(cuid())
-
-  name        String
-  type        String // food, grocery
-
-  category    String
-  subcategory String?
-
-  unit        String
-
-  price       Float?  @default(0)
-
-  currency    String  @default("INR")
-
-  stock       Int     @default(0)
-
-  isAvailable Boolean @default(true)
-
-  dietaryTags String[]
-  allergens   String[]
-
-  defaultQty  Int?
-
-  isFavorite  Boolean  @default(false)
-
-  notes       String?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  Delivered
 }

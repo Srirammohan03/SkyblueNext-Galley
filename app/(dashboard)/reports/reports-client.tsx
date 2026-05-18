@@ -1,5 +1,7 @@
+// app\(dashboard)\reports\reports-client.tsx
 "use client";
-
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -84,37 +86,98 @@ export default function ReportsClient() {
     if (!dataToExport || dataToExport.length === 0) return;
 
     const cols = getExportColumns();
-    const headers = cols.map((c) => c.header);
-    const accessors = cols.map((c) => c.accessorKey);
 
-    const csvContent = [
-      headers.join(","),
-      ...dataToExport.map((row) =>
-        accessors
-          .map((acc) => {
-            let cell =
-              row[acc] === null || row[acc] === undefined
-                ? ""
-                : String(row[acc]);
-            cell = cell.replace(/"/g, '""');
-            if (cell.search(/("|,|\n)/g) >= 0) {
-              cell = `"${cell}"`;
-            }
-            return cell;
-          })
-          .join(","),
-      ),
-    ].join("\n");
+    const formattedData = dataToExport.map((row, index) => {
+      const formatted: any = {
+        "S.No": index + 1,
+      };
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filename}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      cols.forEach((col) => {
+        let value = row[col.accessorKey];
+
+        // FORMAT CURRENCY
+        if (
+          col.accessorKey === "unitPrice" ||
+          col.accessorKey === "totalValue"
+        ) {
+          value =
+            value && value !== "-"
+              ? `₹${Number(value).toLocaleString("en-IN")}`
+              : "-";
+        }
+
+        formatted[col.header] = value ?? "-";
+      });
+
+      return formatted;
+    });
+
+    // CREATE WORKBOOK
+    const workbook = XLSX.utils.book_new();
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+
+    // COLUMN WIDTHS
+    worksheet["!cols"] = [
+      { wch: 8 }, // S.No
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 24 },
+      { wch: 32 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 30 },
+    ];
+
+    // HEADER STYLING
+    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1");
+
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellAddress = XLSX.utils.encode_cell({
+        r: 0,
+        c: C,
+      });
+
+      if (!worksheet[cellAddress]) continue;
+
+      worksheet[cellAddress].s = {
+        font: {
+          bold: true,
+          color: { rgb: "FFFFFF" },
+        },
+        fill: {
+          fgColor: { rgb: "1868A5" },
+        },
+        alignment: {
+          horizontal: "center",
+          vertical: "center",
+        },
+      };
+    }
+
+    // APPEND SHEET
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      getReportTitle().slice(0, 30),
+    );
+
+    // EXPORT
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+      cellStyles: true,
+    });
+
+    const fileData = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
+    saveAs(fileData, `${filename}-${new Date().getTime()}.xlsx`);
   };
 
   const getExportData = () => {
@@ -336,7 +399,7 @@ export default function ReportsClient() {
                       className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 rounded-xl"
                     >
                       <FileSpreadsheet className="w-4 h-4 mr-2" />
-                      Export CSV
+                      Export Excel
                     </Button>
                     <ReportPdfButton
                       title={getReportTitle()}

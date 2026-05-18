@@ -176,12 +176,17 @@ export default function DashboardLayout({
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-[#1868A5] text-white border-r border-white/10 backdrop-blur-xl">
       <div className="p-4 flex items-center justify-between border-b border-white/10 h-16 shrink-0">
-        <div className="flex items-center gap-3">
-          <Logo className="w-8 h-8 shrink-0" />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md shadow-lg ring-1 ring-white/10 shrink-0">
+            <Logo className="h-7 w-7" />
+          </div>
+
           {!isCollapsed && (
-            <span className="text-lg font-bold tracking-tight whitespace-nowrap">
-              SKYBLUE GALLEY
-            </span>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[18px] font-black tracking-wide text-white truncate">
+                SKYBLUE
+              </span>
+            </div>
           )}
         </div>
         <Button

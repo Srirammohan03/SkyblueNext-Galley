@@ -51,19 +51,6 @@ export default async function TrackingPage() {
           role: true,
         },
       },
-
-      items: {
-        include: {
-          vendor: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              contactPerson: true,
-            },
-          },
-        },
-      },
     },
 
     orderBy: {

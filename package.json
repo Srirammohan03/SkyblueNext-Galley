@@ -40,6 +40,7 @@
     "clsx": "latest",
     "date-fns": "latest",
     "dotenv": "latest",
+    "file-saver": "^2.0.5",
     "framer-motion": "latest",
     "lucide-react": "latest",
     "next": "14.2.3",
@@ -51,6 +52,7 @@
     "react-hook-form": "latest",
     "tailwind-merge": "latest",
     "uuid": "^14.0.0",
+    "xlsx": "^0.18.5",
     "zod": "latest"
   },
   "devDependencies": {
