@@ -22,6 +22,10 @@ import {
   X,
   ChevronRight,
   BarChart,
+  Warehouse,
+  Bell,
+  ArrowRightLeft,
+  BookOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -112,33 +116,38 @@ export default function DashboardLayout({
         label: "Dashboard",
         permission: "view_dashboard",
       },
-
       {
         href: "/flights",
         icon: Plane,
         label: "Flights",
         permission: "view_flights",
       },
-
       {
         href: "/catalog/food",
         icon: Utensils,
         label: "Food Catalog",
         permission: "view_catalog",
       },
-
       {
         href: "/catalog/grocery",
         icon: ShoppingBasket,
         label: "Grocery Catalog",
         permission: "view_catalog",
       },
-
       {
         href: "/vendors",
         icon: Store,
         label: "Vendors",
         permission: "view_vendors",
+      },
+    ],
+
+    inventory: [
+      {
+        href: "/inventory",
+        icon: Warehouse,
+        label: "Inventory",
+        permission: "view_inventory",
       },
     ],
 
@@ -149,27 +158,30 @@ export default function DashboardLayout({
         label: "Approvals",
         permission: "view_approvals",
       },
-
       {
         href: "/tracking",
         icon: Package,
         label: "Order Tracking",
         permission: "view_tracking",
       },
-
       {
         href: "/users",
         icon: Users,
         label: "User Management",
         permission: "view_users",
       },
-
       {
         href: "/reports",
         icon: BarChart,
         label: "Reports",
         permission: "view_reports",
       },
+      // {
+      //   href: "/reports/inventory",
+      //   icon: BarChart,
+      //   label: "Inv. Reports",
+      //   permission: "view_reports",
+      // },
     ],
   };
 
@@ -208,6 +220,29 @@ export default function DashboardLayout({
           )}
           <nav className="space-y-1">
             {navigation.core
+              .filter((item) =>
+                userPermissions?.includes(item.permission as never),
+              )
+              .map((item) => (
+                <NavItem
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  isCollapsed={isCollapsed}
+                />
+              ))}
+          </nav>
+        </section>
+
+        <section>
+          {!isCollapsed && (
+            <p className="px-3 text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-3">
+              Inventory
+            </p>
+          )}
+          <nav className="space-y-1">
+            {navigation.inventory
               .filter((item) =>
                 userPermissions?.includes(item.permission as never),
               )

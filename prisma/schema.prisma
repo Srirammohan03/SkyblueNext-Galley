@@ -8,23 +8,24 @@ datasource db {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  email          String        @unique
-  password       String
-  name           String
-  role           UserRole      @default(crew)
-  status         UserStatus    @default(Active)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  permissions    String[]      @default([])
-  image          String?
-  ordersApproved FlightOrder[] @relation("ApprovedBy")
-  ordersCreated  FlightOrder[] @relation("CreatedBy")
-  ordersRejected FlightOrder[] @relation("RejectedBy")
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  password              String
+  name                  String
+  role                  UserRole               @default(crew)
+  status                UserStatus             @default(Active)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  permissions           String[]               @default([])
+  image                 String?
+  ordersApproved        FlightOrder[]          @relation("ApprovedBy")
+  ordersCreated         FlightOrder[]          @relation("CreatedBy")
+  ordersRejected        FlightOrder[]          @relation("RejectedBy")
+  inventoryTransactions InventoryTransaction[]
 }
 
 model FlightOrder {
-  id                  String         @id @default(cuid())
+  id                  String              @id @default(cuid())
   flightNumber        String
   tailNumber          String
   departure           String
@@ -38,13 +39,13 @@ model FlightOrder {
   serviceStyleNotes   String?
   specialInstructions String?
   pickupLocation      String?
-  status              OrderStatus    @default(Draft)
+  status              OrderStatus         @default(Draft)
   rejectionReason     String?
   billUrl             String?
   billAmount          Float?
   billNotes           String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   vendorId            String?
   createdBy           String
   approvedBy          String?
@@ -55,12 +56,13 @@ model FlightOrder {
   deliveryTime        String?
   cancelReason        String?
   cancelledAt         DateTime?
-  approver            User?          @relation("ApprovedBy", fields: [approvedBy], references: [id])
-  creator             User           @relation("CreatedBy", fields: [createdBy], references: [id])
-  rejector            User?          @relation("RejectedBy", fields: [rejectedBy], references: [id])
-  vendor              Vendor?        @relation(fields: [vendorId], references: [id])
+  approver            User?               @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  creator             User                @relation("CreatedBy", fields: [createdBy], references: [id])
+  rejector            User?               @relation("RejectedBy", fields: [rejectedBy], references: [id])
+  vendor              Vendor?             @relation(fields: [vendorId], references: [id])
   items               OrderItem[]
   restoredItems       RestoredItem[]
+  flightConsumptions  FlightConsumption[]
 }
 
 model OrderItem {
@@ -134,25 +136,136 @@ model VendorMenuItem {
 }
 
 model CatalogItem {
-  id          String      @id @default(cuid())
-  name        String
-  type        String
-  category    String
-  subcategory String?
-  unit        String
-  dietaryTags String[]
-  allergens   String[]
-  defaultQty  Int?
-  isFavorite  Boolean     @default(false)
-  notes       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  currency    String      @default("INR")
-  isAvailable Boolean     @default(true)
-  price       Float?      @default(0)
-  stock       Int         @default(0)
-  OrderItem   OrderItem[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  type                  String
+  category              String
+  subcategory           String?
+  unit                  String
+  dietaryTags           String[]
+  allergens             String[]
+  defaultQty            Int?
+  isFavorite            Boolean                @default(false)
+  notes                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  currency              String                 @default("INR")
+  isAvailable           Boolean                @default(true)
+  price                 Float?                 @default(0)
+  stock                 Int                    @default(0)
+  // Grocery inventory extension
+  baseUnit              String                 @default("unit")
+  packEnabled           Boolean                @default(false)
+  packSize              Int?
+  packLabel             String?
+  reorderThresholdType  String                 @default("PACK")
+  reorderThresholdValue Int                    @default(5)
+  OrderItem             OrderItem[]
+  inventoryBalances     InventoryBalance[]
+  inventoryTransactions InventoryTransaction[]
+  onboardEligibilities  OnboardEligibility[]
+  inventoryAlerts       InventoryAlert[]
 }
+
+// ── Inventory Models ───────────────────────────────────────────────────────────
+
+model Aircraft {
+  id         String              @id @default(cuid())
+  tailNumber String              @unique
+  label      String
+  isActive   Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  locations  InventoryLocation[]
+}
+
+model InventoryLocation {
+  id                 String                 @id @default(cuid())
+  type               LocationType
+  name               String
+  aircraftId         String?
+  isActive           Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  aircraft           Aircraft?              @relation(fields: [aircraftId], references: [id])
+  balances           InventoryBalance[]
+  eligibilities      OnboardEligibility[]
+  fromTransactions   InventoryTransaction[] @relation("FromLocation")
+  toTransactions     InventoryTransaction[] @relation("ToLocation")
+  alerts             InventoryAlert[]
+  flightConsumptions FlightConsumption[]
+}
+
+model OnboardEligibility {
+  id         String            @id @default(cuid())
+  locationId String
+  itemId     String
+  eligible   Boolean           @default(true)
+  updatedAt  DateTime          @updatedAt
+  updatedBy  String?
+  location   InventoryLocation @relation(fields: [locationId], references: [id])
+  item       CatalogItem       @relation(fields: [itemId], references: [id])
+
+  @@unique([locationId, itemId])
+}
+
+model InventoryBalance {
+  id              String            @id
+  locationId      String
+  itemId          String
+  onHandBaseUnits Int               @default(0)
+  updatedAt       DateTime          @updatedAt
+  location        InventoryLocation @relation(fields: [locationId], references: [id])
+  item            CatalogItem       @relation(fields: [itemId], references: [id])
+
+  @@unique([locationId, itemId])
+}
+
+model InventoryTransaction {
+  id             String             @id @default(cuid())
+  createdAt      DateTime           @default(now())
+  createdBy      String
+  type           TransactionType
+  fromLocationId String?
+  toLocationId   String?
+  itemId         String
+  baseUnits      Int
+  packs          Int?
+  packSizeAtTime Int?
+  flightId       String?
+  reason         String?
+  note           String?
+  fromLocation   InventoryLocation? @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation     InventoryLocation? @relation("ToLocation", fields: [toLocationId], references: [id])
+  item           CatalogItem        @relation(fields: [itemId], references: [id])
+  creator        User               @relation(fields: [createdBy], references: [id])
+}
+
+model InventoryAlert {
+  id               String            @id @default(cuid())
+  itemId           String
+  locationId       String
+  severity         String            @default("LOW_STOCK")
+  thresholdType    String
+  thresholdValue   Int
+  currentBaseUnits Int
+  createdAt        DateTime          @default(now())
+  acknowledgedAt   DateTime?
+  acknowledgedBy   String?
+  item             CatalogItem       @relation(fields: [itemId], references: [id])
+  location         InventoryLocation @relation(fields: [locationId], references: [id])
+}
+
+model FlightConsumption {
+  id         String            @id @default(cuid())
+  flightId   String
+  locationId String
+  recordedAt DateTime          @default(now())
+  recordedBy String
+  items      Json
+  flight     FlightOrder       @relation(fields: [flightId], references: [id])
+  location   InventoryLocation @relation(fields: [locationId], references: [id])
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
 
 enum UserRole {
   admin
@@ -177,4 +290,16 @@ enum OrderStatus {
   Rejected
   Cancelled
   Delivered
+}
+
+enum LocationType {
+  WAREHOUSE
+  ONBOARD
+}
+
+enum TransactionType {
+  RECEIVE
+  TRANSFER
+  CONSUME
+  ADJUST
 }

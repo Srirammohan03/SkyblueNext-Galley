@@ -91,7 +91,10 @@ export default function UsersClient({ users: initialUsers }: Props) {
       key: "view_vendors",
       label: "Vendors",
     },
-
+    {
+      key: "view_inventory",
+      label: "Inventory",
+    },
     {
       key: "view_approvals",
       label: "Approvals",

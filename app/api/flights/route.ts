@@ -119,6 +119,26 @@ export async function POST(req: Request) {
       );
     }
 
+    const finalItems = Array.isArray(items) ? items : [];
+
+    // Fetch valid CatalogItem and Vendor IDs to prevent database constraint violations
+    const itemIds = finalItems.map((item: any) => item.itemId).filter(Boolean);
+    const vendorIds = finalItems.map((item: any) => item.vendorId).filter(Boolean);
+
+    const [validCatalogItems, validVendors] = await Promise.all([
+      prisma.catalogItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { id: true },
+      }),
+      prisma.vendor.findMany({
+        where: { id: { in: vendorIds } },
+        select: { id: true },
+      }),
+    ]);
+
+    const validCatalogItemIds = new Set(validCatalogItems.map((c) => c.id));
+    const validVendorIds = new Set(validVendors.map((v) => v.id));
+
     const flight = await prisma.flightOrder.create({
       data: {
         flightNumber: flightNumber?.trim() || "TBD",
@@ -137,7 +157,7 @@ export async function POST(req: Request) {
 
         departureTime: departureTime || null,
 
-        timezone: timezone || "UTC",
+        timezone: timezone || "IST",
 
         pickupLocation: pickupLocation || "",
 
@@ -155,11 +175,16 @@ export async function POST(req: Request) {
         createdBy: (session.user as any).id,
 
         items: {
-          create: Array.isArray(items)
-            ? items.map((item: any) => ({
-              itemId: item.itemId || "custom",
+          create: finalItems.map((item: any) => ({
+              itemId:
+                item.itemId && validCatalogItemIds.has(item.itemId)
+                  ? item.itemId
+                  : null,
 
-              vendorId: item.vendorId || null,
+              vendorId:
+                item.vendorId && validVendorIds.has(item.vendorId)
+                  ? item.vendorId
+                  : null,
 
               name: item.name || "Custom Item",
 
@@ -181,8 +206,7 @@ export async function POST(req: Request) {
               dietaryTags: Array.isArray(item.dietaryTags)
                 ? item.dietaryTags
                 : [],
-            }))
-            : [],
+            })),
         },
       },
 
@@ -206,6 +230,119 @@ export async function POST(req: Request) {
         },
       },
     });
+    // DYNAMIC STOCK DECREMENT
+    const warehouseLoc = await prisma.inventoryLocation.findFirst({
+      where: { type: "WAREHOUSE" }
+    });
+
+    for (const item of finalItems) {
+      if (item.isRestored) {
+        let deductFromWarehouse = 0;
+        if (tailNumber && tailNumber.trim() !== "" && tailNumber.trim().toUpperCase() !== "TBD") {
+          const restoredPool = await prisma.restoredItem.findMany({
+            where: {
+              flightOrder: {
+                tailNumber: tailNumber.trim().toUpperCase(),
+                status: "Completed"
+              },
+              returnedQty: { gt: 0 }
+            },
+            orderBy: { restoredAt: "asc" },
+            include: { flightOrder: { include: { items: true } } }
+          });
+
+          let remainingRequested = Number(item.quantity);
+
+          for (const ri of restoredPool) {
+             if (remainingRequested <= 0) break;
+             const orderItem = ri.flightOrder.items.find((i: any) => i.id === ri.itemId);
+             if (orderItem && orderItem.itemId === item.itemId) {
+                const deduct = Math.min(ri.returnedQty, remainingRequested);
+                await prisma.restoredItem.update({
+                  where: { id: ri.id },
+                  data: { returnedQty: ri.returnedQty - deduct }
+                });
+                remainingRequested -= deduct;
+             }
+          }
+          deductFromWarehouse = remainingRequested;
+        } else {
+          deductFromWarehouse = Number(item.quantity);
+        }
+
+        if (deductFromWarehouse > 0 && warehouseLoc && item.itemId && validCatalogItemIds.has(item.itemId) && !item.vendorId) {
+          const balanceId = `${warehouseLoc.id}_${item.itemId}`;
+          const existing = await prisma.inventoryBalance.findUnique({ where: { id: balanceId } });
+          const newQty = Math.max(0, (existing?.onHandBaseUnits ?? 0) - deductFromWarehouse);
+          
+          await prisma.inventoryBalance.upsert({
+            where: { id: balanceId },
+            update: { onHandBaseUnits: newQty },
+            create: { id: balanceId, locationId: warehouseLoc.id, itemId: item.itemId, onHandBaseUnits: newQty }
+          });
+
+          await prisma.catalogItem.update({
+            where: { id: item.itemId },
+            data: { stock: newQty }
+          });
+        }
+
+      } else if (item.itemId && validCatalogItemIds.has(item.itemId) && !item.vendorId) {
+        if (warehouseLoc) {
+          const balanceId = `${warehouseLoc.id}_${item.itemId}`;
+          const existing = await prisma.inventoryBalance.findUnique({ where: { id: balanceId } });
+          const newQty = Math.max(0, (existing?.onHandBaseUnits ?? 0) - Number(item.quantity));
+          
+          await prisma.inventoryBalance.upsert({
+            where: { id: balanceId },
+            update: { onHandBaseUnits: newQty },
+            create: { id: balanceId, locationId: warehouseLoc.id, itemId: item.itemId, onHandBaseUnits: newQty }
+          });
+
+          const catalogItem = await prisma.catalogItem.update({
+            where: { id: item.itemId },
+            data: { stock: newQty }
+          });
+
+          if (catalogItem.type === "grocery") {
+            const thresholdType = catalogItem.reorderThresholdType;
+            const thresholdValue = catalogItem.reorderThresholdValue;
+            const packSize = catalogItem.packSize || 1;
+            const thresholdBaseUnits = (thresholdType === "PACK" && catalogItem.packEnabled) 
+              ? thresholdValue * packSize 
+              : thresholdValue;
+
+            const isLow = newQty < Math.max(thresholdBaseUnits, 10);
+            const existingAlert = await prisma.inventoryAlert.findFirst({
+              where: { itemId: item.itemId, locationId: warehouseLoc.id, acknowledgedAt: null }
+            });
+
+            if (isLow && !existingAlert) {
+              await prisma.inventoryAlert.create({
+                data: {
+                  itemId: item.itemId,
+                  locationId: warehouseLoc.id,
+                  severity: "LOW_STOCK",
+                  thresholdType,
+                  thresholdValue,
+                  currentBaseUnits: newQty
+                }
+              });
+            } else if (!isLow && existingAlert) {
+              await prisma.inventoryAlert.update({
+                where: { id: existingAlert.id },
+                data: { acknowledgedAt: new Date(), acknowledgedBy: "SYSTEM_AUTO" }
+              });
+            } else if (isLow && existingAlert) {
+              await prisma.inventoryAlert.update({
+                where: { id: existingAlert.id },
+                data: { currentBaseUnits: newQty }
+              });
+            }
+          }
+        }
+      }
+    }
 
     return NextResponse.json(flight);
   } catch (error: any) {

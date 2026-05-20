@@ -25,6 +25,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import DashboardActions from "./dashboard-actions";
 
+function StatIcon({ title, className }: { title: string; className?: string }) {
+  switch (title) {
+    case "Upcoming Flights":
+      return <Plane className={className} />;
+    case "Active Orders":
+      return <ShoppingBasket className={className} />;
+    case "Pending Approvals":
+      return <CheckSquare className={className} />;
+    case "Team Members":
+      return <Users className={className} />;
+    default:
+      return null;
+  }
+}
+
 export default async function DashboardPage() {
   const session = await auth();
 
@@ -156,7 +171,6 @@ export default async function DashboardPage() {
     {
       title: "Upcoming Flights",
       value: upcomingFlights.length,
-      icon: Plane,
       trend: "up",
       change: `${completedFlights} completed`,
       color: "text-blue-600",
@@ -166,7 +180,6 @@ export default async function DashboardPage() {
     {
       title: "Active Orders",
       value: activeOrders,
-      icon: ShoppingBasket,
       trend: "up",
       change: "Orders in progress",
       color: "text-emerald-600",
@@ -176,7 +189,6 @@ export default async function DashboardPage() {
     {
       title: "Pending Approvals",
       value: pendingApprovals,
-      icon: CheckSquare,
       trend: pendingApprovals > 0 ? "down" : "up",
       change:
         pendingApprovals > 0 ? `${pendingApprovals} waiting` : "All cleared",
@@ -185,36 +197,16 @@ export default async function DashboardPage() {
       bg: "bg-orange-100",
     },
 
-    // {
-    //   title: "Active Vendors",
-    //   value: totalVendors,
-    //   icon: Utensils,
-    //   trend: "up",
-    //   change: "Vendor network",
-    //   color: "text-violet-600",
-    //   bg: "bg-violet-100",
-    // },
-
     {
       title: "Team Members",
       value: totalUsers,
-      icon: Users,
       trend: "up",
       change: "System users",
       color: "text-pink-600",
       bg: "bg-pink-100",
     },
-
-    // {
-    //   title: "Revenue",
-    //   value: `₹${Number(totalRevenue._sum.billAmount || 0).toLocaleString()}`,
-    //   icon: IndianRupee,
-    //   trend: "up",
-    //   change: "Total billing",
-    //   color: "text-cyan-600",
-    //   bg: "bg-cyan-100",
-    // },
   ];
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -381,7 +373,7 @@ export default async function DashboardPage() {
                     transition-transform
                   `}
                 >
-                  <stat.icon className="w-7 h-7" />
+                  <StatIcon title={stat.title} className="w-7 h-7" />
                 </div>
               </div>
             </CardContent>

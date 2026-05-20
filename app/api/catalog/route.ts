@@ -22,48 +22,75 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json();
+  const warehouse = await prisma.inventoryLocation.findFirst({
+    where: { type: "WAREHOUSE" },
+  });
+
   if (Array.isArray(body)) {
-    const items = await prisma.catalogItem.createMany({
-      data: body.map((item) => ({
-        ...item,
-        type: item.type?.toLowerCase()?.trim(),
-        defaultQty: item.defaultQty
-          ? parseInt(item.defaultQty)
-          : null,
-        price: Number(item.price) || 0,
-        currency: item.currency || "INR",
-        isAvailable:
-          typeof item.isAvailable === "boolean"
-            ? item.isAvailable
-            : true,
-      })),
-    });
-    return NextResponse.json(items);
+    const results = [];
+    for (const item of body) {
+      const type = item.type?.toLowerCase()?.trim() || "grocery";
+      const defaultQty = item.defaultQty ? parseInt(item.defaultQty) : null;
+      
+      const created = await prisma.catalogItem.create({
+        data: {
+          ...item,
+          type,
+          defaultQty,
+          price: Number(item.price) || 0,
+          currency: item.currency || "INR",
+          isAvailable: typeof item.isAvailable === "boolean" ? item.isAvailable : true,
+        },
+      });
+      
+      // Auto-sync inventory balance for warehouse
+      if (warehouse && defaultQty !== null && type === "grocery") {
+        const id = `${warehouse.id}_${created.id}`;
+        await prisma.inventoryBalance.upsert({
+          where: { id },
+          update: { onHandBaseUnits: defaultQty },
+          create: { id, locationId: warehouse.id, itemId: created.id, onHandBaseUnits: defaultQty },
+        });
+      }
+      results.push(created);
+    }
+    return NextResponse.json(results);
   }
+
   const { id, ...data } = body;
+  const defaultQty = data.defaultQty ? parseInt(data.defaultQty) : null;
+  const itemType = data.type?.toLowerCase()?.trim() || "grocery";
+
   const item = await prisma.catalogItem.upsert({
     where: {
       id: id || "new-id",
     },
     update: {
       ...data,
+      defaultQty,
       price: Number(data.price) || 0,
       currency: data.currency || "INR",
-      isAvailable:
-        typeof data.isAvailable === "boolean"
-          ? data.isAvailable
-          : true,
+      isAvailable: typeof data.isAvailable === "boolean" ? data.isAvailable : true,
     },
     create: {
       ...data,
+      defaultQty,
       price: Number(data.price) || 0,
       currency: data.currency || "INR",
-      isAvailable:
-        typeof data.isAvailable === "boolean"
-          ? data.isAvailable
-          : true,
+      isAvailable: typeof data.isAvailable === "boolean" ? data.isAvailable : true,
     },
   });
+
+  // Auto-sync inventory balance for warehouse if editing a single item
+  if (warehouse && defaultQty !== null && itemType === "grocery") {
+    const balId = `${warehouse.id}_${item.id}`;
+    await prisma.inventoryBalance.upsert({
+      where: { id: balId },
+      update: { onHandBaseUnits: defaultQty },
+      create: { id: balId, locationId: warehouse.id, itemId: item.id, onHandBaseUnits: defaultQty },
+    });
+  }
+
   return NextResponse.json(item);
 }
 

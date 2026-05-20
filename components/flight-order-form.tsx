@@ -100,7 +100,18 @@ export default function FlightOrderForm({
     setCategoryFilter("All");
   }, [catalogFilter, selectedVendorIds]);
   const [flightOpen, setFlightOpen] = useState(false);
+  const now = new Date();
 
+  const localDateTime =
+    now.getFullYear() +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(now.getDate()).padStart(2, "0") +
+    "T" +
+    String(now.getHours()).padStart(2, "0") +
+    ":" +
+    String(now.getMinutes()).padStart(2, "0");
   const {
     register,
     control,
@@ -115,7 +126,7 @@ export default function FlightOrderForm({
       tailNumber: "",
       departure: "",
       arrival: "",
-      date: new Date().toISOString().slice(0, 16),
+      date: localDateTime,
       paxCount: 1,
       crewCount: 1,
       timezone: "IST (UTC+5:30)",
@@ -135,6 +146,31 @@ export default function FlightOrderForm({
     name: "items",
   });
 
+  const [restoredItems, setRestoredItems] = useState<any[]>([]);
+  const tailNumber = watch("tailNumber");
+
+  useEffect(() => {
+    const fetchRestored = async () => {
+      if (
+        !tailNumber ||
+        tailNumber.trim() === "" ||
+        tailNumber.trim().toUpperCase() === "TBD"
+      ) {
+        setRestoredItems([]);
+        return;
+      }
+      try {
+        const res = await axios.get(
+          `/api/restored-items?tailNumber=${tailNumber}`,
+        );
+        setRestoredItems(res.data);
+      } catch (err) {
+        console.error("Failed to fetch restored items", err);
+      }
+    };
+    fetchRestored();
+  }, [tailNumber]);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -152,9 +188,7 @@ export default function FlightOrderForm({
             ...initialData,
             date:
               initialData.date && initialData.departureTime
-                ? `${
-                    new Date(initialData.date).toISOString().split("T")[0]
-                  }T${initialData.departureTime}`
+                ? `${String(initialData.date).split("T")[0]}T${initialData.departureTime}`
                 : "",
             items:
               initialData.items?.map((item: any) => ({
@@ -202,6 +236,12 @@ export default function FlightOrderForm({
   }, [selectedVendorIds]);
 
   const displayedItems = useMemo(() => {
+    if (catalogFilter === "Restored") {
+      return restoredItems.filter((item: any) => {
+        return item.name?.toLowerCase().includes(catalogSearch.toLowerCase());
+      });
+    }
+
     const source = selectedVendorIds.length > 0 ? vendorItems : catalog;
 
     return source.filter((item: any) => {
@@ -230,6 +270,7 @@ export default function FlightOrderForm({
   }, [
     vendorItems,
     catalog,
+    restoredItems,
     catalogSearch,
     catalogFilter,
     categoryFilter,
@@ -237,6 +278,14 @@ export default function FlightOrderForm({
   ]);
 
   const availableCategories = useMemo(() => {
+    if (catalogFilter === "Restored") {
+      return Array.from(
+        new Set(
+          restoredItems.map((item: any) => item.category).filter(Boolean),
+        ),
+      );
+    }
+
     const source = selectedVendorIds.length > 0 ? vendorItems : catalog;
 
     const filteredByType =
@@ -258,13 +307,27 @@ export default function FlightOrderForm({
     );
 
     return uniqueCategories;
-  }, [catalog, vendorItems, selectedVendorIds, catalogFilter]);
+  }, [catalog, vendorItems, restoredItems, selectedVendorIds, catalogFilter]);
   const addItemToOrder = (item: any) => {
     const existingIndex = watchItems.findIndex(
       (orderItem: any) =>
         orderItem.itemId === (item.catalogItemId || item.id) &&
         orderItem.vendorId === (item.vendorId || null),
     );
+
+    // If it's a restored item, make sure we don't exceed returnedQty
+    if (item.isRestored) {
+      const currentQty =
+        existingIndex !== -1 ? Number(watchItems[existingIndex]?.quantity) : 0;
+      if (currentQty >= item.returnedQty) {
+        toast({
+          title: "Insufficient restored quantity",
+          description: `Only ${item.returnedQty} items are available from restored stock.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     // IF ITEM ALREADY EXISTS → INCREASE QTY
     if (existingIndex !== -1) {
@@ -285,7 +348,7 @@ export default function FlightOrderForm({
 
       vendorName: vendor?.name || null,
 
-      vendor: vendor || null,
+      vendor: item.vendor || null,
 
       name: item.name,
 
@@ -304,6 +367,8 @@ export default function FlightOrderForm({
       notes: "",
 
       dietaryTags: item.dietaryTags || [],
+
+      isRestored: item.isRestored || false,
     });
   };
 
@@ -357,6 +422,26 @@ export default function FlightOrderForm({
     }
   };
   const watchItems = watch("items", fields);
+
+  const getAddedRestoredQty = (item: any) => {
+    const orderItem = watchItems?.find(
+      (oi: any) => oi.itemId === (item.catalogItemId || item.id),
+    );
+    return orderItem ? Number(orderItem.quantity) : 0;
+  };
+
+  const getMaxQty = (orderItem: any) => {
+    if (
+      orderItem.isRestored ||
+      orderItem.notes === "Restored from previous flight"
+    ) {
+      const restored = restoredItems.find(
+        (r) => r.catalogItemId === orderItem.itemId,
+      );
+      return restored ? restored.returnedQty : 99999;
+    }
+    return 99999;
+  };
 
   const vendorTotals = watchItems.reduce((acc: any, item: any) => {
     const key = item.vendorName || item.vendor?.name || "Grocery Catalog";
@@ -731,12 +816,20 @@ export default function FlightOrderForm({
                               type="number"
                               min={1}
                               value={watchItems[index]?.quantity || ""}
-                              onChange={(e) =>
-                                setValue(
-                                  `items.${index}.quantity`,
-                                  Number(e.target.value),
-                                )
-                              }
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const max = getMaxQty(watchItems[index]);
+                                if (val > max) {
+                                  toast({
+                                    title: "Insufficient restored quantity",
+                                    description: `Only ${max} items are available from restored stock.`,
+                                    variant: "destructive",
+                                  });
+                                  setValue(`items.${index}.quantity`, max);
+                                } else {
+                                  setValue(`items.${index}.quantity`, val);
+                                }
+                              }}
                               className="w-20 rounded-xl"
                             />
                           </TableCell>
@@ -864,12 +957,20 @@ export default function FlightOrderForm({
                                 type="number"
                                 min={1}
                                 value={watchItems[index]?.quantity || ""}
-                                onChange={(e) =>
-                                  setValue(
-                                    `items.${index}.quantity`,
-                                    Number(e.target.value),
-                                  )
-                                }
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  const max = getMaxQty(watchItems[index]);
+                                  if (val > max) {
+                                    toast({
+                                      title: "Insufficient restored quantity",
+                                      description: `Only ${max} items are available from restored stock.`,
+                                      variant: "destructive",
+                                    });
+                                    setValue(`items.${index}.quantity`, max);
+                                  } else {
+                                    setValue(`items.${index}.quantity`, val);
+                                  }
+                                }}
                                 className="w-20 rounded-xl"
                               />
                             </div>
@@ -983,7 +1084,7 @@ export default function FlightOrderForm({
                   </div>
 
                   <div className="rounded-2xl bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                    {displayedItems.length} Items
+                    {displayedItems?.length} Items
                   </div>
                 </div>
               </CardHeader>
@@ -1087,7 +1188,7 @@ export default function FlightOrderForm({
                 </div>
                 {/* ITEMS */}
                 <div className="max-h-[500px] space-y-3 overflow-y-auto pr-1">
-                  {displayedItems.map((item: any) => (
+                  {displayedItems?.map((item: any) => (
                     <button
                       key={item.id}
                       type="button"
@@ -1212,7 +1313,7 @@ export default function FlightOrderForm({
                 </div>
 
                 <div className="rounded-2xl bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                  {displayedItems.length} Items
+                  {displayedItems?.length} Items
                 </div>
               </div>
             </CardHeader>
@@ -1244,7 +1345,12 @@ export default function FlightOrderForm({
 
               {/* TYPE FILTERS */}
               <div className="flex flex-wrap gap-2">
-                {["All", "food", "grocery"].map((type) => {
+                {[
+                  "All",
+                  "food",
+                  "grocery",
+                  ...(restoredItems.length > 0 ? ["Restored"] : []),
+                ].map((type) => {
                   const active = catalogFilter === type;
 
                   return (
@@ -1327,72 +1433,78 @@ export default function FlightOrderForm({
               {/* ITEMS */}
 
               <div className="max-h-[650px] space-y-3 overflow-y-auto pr-1">
-                {displayedItems.map((item: any) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => addItemToOrder(item)}
-                    className="
-                group
-                w-full
-                rounded-2xl
-                border
-                border-slate-100
-                bg-white
-                p-4
-                text-left
-                transition-all
-                duration-200
-                hover:border-slate-300
-                hover:shadow-md
-              "
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-slate-700">
-                          {item.name}
-                        </p>
+                {displayedItems.map((item: any) => {
+                  const remainingRestored = item.isRestored
+                    ? item.returnedQty - getAddedRestoredQty(item)
+                    : 999;
+                  const isFullyUsed = item.isRestored && remainingRestored <= 0;
 
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {item.category && (
-                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                              {item.category}
-                            </span>
-                          )}
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={isFullyUsed}
+                      onClick={() => addItemToOrder(item)}
+                      className={`
+                        group
+                        w-full
+                        rounded-2xl
+                        border
+                        border-slate-100
+                        bg-white
+                        p-4
+                        text-left
+                        transition-all
+                        duration-200
+                        ${
+                          isFullyUsed
+                            ? "opacity-40 cursor-not-allowed"
+                            : "hover:border-slate-300 hover:shadow-md"
+                        }
+                      `}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-slate-700">
+                            {item.name}
+                          </p>
 
-                          {/* {(item.unit || item.currency) && (
-                              <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
-                                {item.unit || item.currency}
-                              </span>
-                            )}
-
-                            {item.price && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {item.isRestored ? (
                               <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                                {item.currency || "INR"} {item.price}
+                                {remainingRestored} of {item.returnedQty}{" "}
+                                restored available
                               </span>
-                            )} */}
+                            ) : (
+                              item.category && (
+                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                  {item.category}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        <div
+                          className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-2xl
+                      bg-slate-100
+                      transition-all
+                      group-hover:bg-slate-900
+                    "
+                        >
+                          <Plus className="h-4 w-4 text-slate-700 group-hover:text-white" />
                         </div>
                       </div>
-
-                      <div
-                        className="
-                    flex
-                    h-10
-                    w-10
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-slate-100
-                    transition-all
-                    group-hover:bg-slate-900
-                  "
-                      >
-                        <Plus className="h-4 w-4 text-slate-700 group-hover:text-white" />
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
 
                 {!displayedItems.length && (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
