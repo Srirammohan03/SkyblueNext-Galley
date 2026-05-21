@@ -29,7 +29,11 @@ export async function GET(
       },
     });
     if (!flight) return NextResponse.json({ error: "Flight not found" }, { status: 404 });
-    return NextResponse.json(flight);
+    return NextResponse.json(flight, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch flight" }, { status: 500 });
   }
@@ -171,16 +175,16 @@ export async function PUT(
           let remainingToDeduct = restoredDelta;
 
           for (const ri of restoredPool) {
-             if (remainingToDeduct <= 0) break;
-             const orderItem = ri.flightOrder.items.find((i: any) => i.id === ri.itemId);
-             if (orderItem && orderItem.itemId === itemId) {
-                const deduct = Math.min(ri.returnedQty, remainingToDeduct);
-                await prisma.restoredItem.update({
-                  where: { id: ri.id },
-                  data: { returnedQty: ri.returnedQty - deduct }
-                });
-                remainingToDeduct -= deduct;
-             }
+            if (remainingToDeduct <= 0) break;
+            const orderItem = ri.flightOrder.items.find((i: any) => i.id === ri.itemId);
+            if (orderItem && orderItem.itemId === itemId) {
+              const deduct = Math.min(ri.returnedQty, remainingToDeduct);
+              await prisma.restoredItem.update({
+                where: { id: ri.id },
+                data: { returnedQty: ri.returnedQty - deduct }
+              });
+              remainingToDeduct -= deduct;
+            }
           }
           unfulfilledRestoredDelta = remainingToDeduct;
         } else {
@@ -201,7 +205,7 @@ export async function PUT(
         const balanceId = `${warehouseLoc.id}_${itemId}`;
         const existing = await prisma.inventoryBalance.findUnique({ where: { id: balanceId } });
         const newQty = Math.max(0, (existing?.onHandBaseUnits ?? 0) - warehouseDelta);
-        
+
         await prisma.inventoryBalance.upsert({
           where: { id: balanceId },
           update: { onHandBaseUnits: newQty },
@@ -213,42 +217,42 @@ export async function PUT(
           data: { stock: newQty }
         });
 
-        if (catalogItem.type === "grocery") {
-          const thresholdType = catalogItem.reorderThresholdType;
-          const thresholdValue = catalogItem.reorderThresholdValue;
-          const packSize = catalogItem.packSize || 1;
-          const thresholdBaseUnits = (thresholdType === "PACK" && catalogItem.packEnabled) 
-            ? thresholdValue * packSize 
-            : thresholdValue;
+        // if (catalogItem.type === "grocery") {
+        //   const thresholdType = catalogItem.reorderThresholdType;
+        //   const thresholdValue = catalogItem.reorderThresholdValue;
+        //   const packSize = catalogItem.packSize || 1;
+        //   const thresholdBaseUnits = (thresholdType === "PACK" && catalogItem.packEnabled) 
+        //     ? thresholdValue * packSize 
+        //     : thresholdValue;
 
-          const isLow = newQty < Math.max(thresholdBaseUnits, 10);
-          const existingAlert = await prisma.inventoryAlert.findFirst({
-            where: { itemId, locationId: warehouseLoc.id, acknowledgedAt: null }
-          });
+        //   const isLow = newQty < Math.max(thresholdBaseUnits, 10);
+        //   const existingAlert = await prisma.inventoryAlert.findFirst({
+        //     where: { itemId, locationId: warehouseLoc.id, acknowledgedAt: null }
+        //   });
 
-          if (isLow && !existingAlert) {
-            await prisma.inventoryAlert.create({
-              data: {
-                itemId,
-                locationId: warehouseLoc.id,
-                severity: "LOW_STOCK",
-                thresholdType,
-                thresholdValue,
-                currentBaseUnits: newQty
-              }
-            });
-          } else if (!isLow && existingAlert) {
-            await prisma.inventoryAlert.update({
-              where: { id: existingAlert.id },
-              data: { acknowledgedAt: new Date(), acknowledgedBy: "SYSTEM_AUTO" }
-            });
-          } else if (isLow && existingAlert) {
-            await prisma.inventoryAlert.update({
-              where: { id: existingAlert.id },
-              data: { currentBaseUnits: newQty }
-            });
-          }
-        }
+        //   if (isLow && !existingAlert) {
+        //     await prisma.inventoryAlert.create({
+        //       data: {
+        //         itemId,
+        //         locationId: warehouseLoc.id,
+        //         severity: "LOW_STOCK",
+        //         thresholdType,
+        //         thresholdValue,
+        //         currentBaseUnits: newQty
+        //       }
+        //     });
+        //   } else if (!isLow && existingAlert) {
+        //     await prisma.inventoryAlert.update({
+        //       where: { id: existingAlert.id },
+        //       data: { acknowledgedAt: new Date(), acknowledgedBy: "SYSTEM_AUTO" }
+        //     });
+        //   } else if (isLow && existingAlert) {
+        //     await prisma.inventoryAlert.update({
+        //       where: { id: existingAlert.id },
+        //       data: { currentBaseUnits: newQty }
+        //     });
+        //   }
+        // }
       }
     }
 

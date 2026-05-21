@@ -28,10 +28,14 @@ export async function POST(req: Request) {
 
   if (Array.isArray(body)) {
     const results = [];
+
     for (const item of body) {
       const type = item.type?.toLowerCase()?.trim() || "grocery";
-      const defaultQty = item.defaultQty ? parseInt(item.defaultQty) : null;
-      
+
+      const defaultQty = item.defaultQty
+        ? parseInt(item.defaultQty)
+        : null;
+
       const created = await prisma.catalogItem.create({
         data: {
           ...item,
@@ -39,21 +43,40 @@ export async function POST(req: Request) {
           defaultQty,
           price: Number(item.price) || 0,
           currency: item.currency || "INR",
-          isAvailable: typeof item.isAvailable === "boolean" ? item.isAvailable : true,
+          isAvailable:
+            typeof item.isAvailable === "boolean"
+              ? item.isAvailable
+              : true,
         },
       });
-      
-      // Auto-sync inventory balance for warehouse
-      if (warehouse && defaultQty !== null && type === "grocery") {
-        const id = `${warehouse.id}_${created.id}`;
+
+      // Auto create warehouse balance
+      if (
+        warehouse &&
+        defaultQty !== null &&
+        type === "grocery"
+      ) {
         await prisma.inventoryBalance.upsert({
-          where: { id },
-          update: { onHandBaseUnits: defaultQty },
-          create: { id, locationId: warehouse.id, itemId: created.id, onHandBaseUnits: defaultQty },
+          where: {
+            locationId_itemId: {
+              locationId: warehouse.id,
+              itemId: created.id,
+            },
+          },
+          update: {
+            onHandBaseUnits: defaultQty,
+          },
+          create: {
+            locationId: warehouse.id,
+            itemId: created.id,
+            onHandBaseUnits: defaultQty,
+          },
         });
       }
+
       results.push(created);
     }
+
     return NextResponse.json(results);
   }
 
@@ -81,13 +104,22 @@ export async function POST(req: Request) {
     },
   });
 
-  // Auto-sync inventory balance for warehouse if editing a single item
   if (warehouse && defaultQty !== null && itemType === "grocery") {
-    const balId = `${warehouse.id}_${item.id}`;
     await prisma.inventoryBalance.upsert({
-      where: { id: balId },
-      update: { onHandBaseUnits: defaultQty },
-      create: { id: balId, locationId: warehouse.id, itemId: item.id, onHandBaseUnits: defaultQty },
+      where: {
+        locationId_itemId: {
+          locationId: warehouse.id,
+          itemId: item.id,
+        },
+      },
+      update: {
+        onHandBaseUnits: defaultQty,
+      },
+      create: {
+        locationId: warehouse.id,
+        itemId: item.id,
+        onHandBaseUnits: defaultQty,
+      },
     });
   }
 

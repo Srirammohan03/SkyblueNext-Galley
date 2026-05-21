@@ -176,7 +176,7 @@ export default function FlightOrderForm({
       try {
         const [vendorsRes, catalogRes] = await Promise.all([
           axios.get("/api/vendors"),
-          axios.get("/api/catalog"),
+          axios.get("/api/catalog?type=food"),
         ]);
 
         setVendors(vendorsRes.data);
@@ -248,9 +248,7 @@ export default function FlightOrderForm({
       if (item.isAvailable === false) {
         return false;
       }
-      const itemType =
-        item.type?.toLowerCase()?.trim() ||
-        (item.category?.toLowerCase().includes("grocery") ? "grocery" : "food");
+      const itemType = item.type?.toLowerCase()?.trim() || "food";
 
       const itemCategory = item.category || "";
       const matchesSearch = item.name
@@ -293,11 +291,7 @@ export default function FlightOrderForm({
         ? source
         : source.filter((item: any) => {
             // FALLBACK TYPE
-            const itemType =
-              item.type?.toLowerCase()?.trim() ||
-              (item.category?.toLowerCase().includes("grocery")
-                ? "grocery"
-                : "food");
+            const itemType = item.type?.toLowerCase()?.trim() || "food";
 
             return itemType === catalogFilter.toLowerCase().trim();
           });
@@ -444,7 +438,7 @@ export default function FlightOrderForm({
   };
 
   const vendorTotals = watchItems.reduce((acc: any, item: any) => {
-    const key = item.vendorName || item.vendor?.name || "Grocery Catalog";
+    const key = item.vendorName || item.vendor?.name || "Flight Menu";
 
     const total = (Number(item.price) || 0) * (Number(item.quantity) || 0);
 
@@ -749,7 +743,7 @@ export default function FlightOrderForm({
                 </CardTitle>
                 <CardDescription>Add vendor or catalog items</CardDescription>
               </div>
-
+              {/* 
               <Button
                 type="button"
                 variant="outline"
@@ -766,7 +760,7 @@ export default function FlightOrderForm({
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Custom
-              </Button>
+              </Button> */}
             </CardHeader>
 
             <CardContent className="p-0">
@@ -1107,7 +1101,7 @@ export default function FlightOrderForm({
                 </div>
                 {/* TYPE FILTERS */}
                 <div className="flex flex-wrap gap-2">
-                  {["All", "food", "grocery"].map((type) => {
+                  {["All", "food"].map((type) => {
                     const active = catalogFilter === type;
 
                     return (
@@ -1348,8 +1342,7 @@ export default function FlightOrderForm({
                 {[
                   "All",
                   "food",
-                  "grocery",
-                  ...(restoredItems.length > 0 ? ["Restored"] : []),
+                  // ...(restoredItems.length > 0 ? ["Restored"] : []),
                 ].map((type) => {
                   const active = catalogFilter === type;
 

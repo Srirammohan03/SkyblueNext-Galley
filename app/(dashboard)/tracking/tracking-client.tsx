@@ -1,7 +1,7 @@
 // app\(dashboard)\tracking\tracking-client.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,7 +33,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import DownloadPDFButton from "@/components/download-pdf-button";
 import { toast } from "@/components/ui/use-toast";
-
 interface OrderItem {
   id: string;
   name: string;
@@ -100,6 +99,8 @@ const statusFlow = [
   "SentToVendor",
   "Confirmed",
   "Delivered",
+  "OnBoard",
+  "DeBoard",
   "Completed",
 ];
 
@@ -109,6 +110,8 @@ const statusLabels: Record<string, string> = {
   SentToVendor: "Sent to Vendor",
   Confirmed: "Confirmed",
   Delivered: "Delivered",
+  OnBoard: "On Board",
+  DeBoard: "De Board",
   Completed: "Completed",
   Rejected: "Rejected",
   Cancelled: "Cancelled",
@@ -120,6 +123,8 @@ const stepShortLabel: Record<string, string> = {
   SentToVendor: "Sent to Vendor",
   Confirmed: "Confirmed",
   Delivered: "Delivered",
+  OnBoard: "On Board",
+  DeBoard: "De Board",
   Completed: "Completed",
 };
 
@@ -161,6 +166,20 @@ const statusConfig: Record<
     bg: "bg-amber-50",
     border: "border-amber-200",
     dot: "bg-amber-500",
+  },
+  OnBoard: {
+    label: "On Board",
+    color: "text-blue-700",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    dot: "bg-blue-500",
+  },
+  DeBoard: {
+    label: "De Board",
+    color: "text-red-700",
+    bg: "bg-red-50",
+    border: "border-red-200",
+    dot: "bg-red-500",
   },
   Completed: {
     label: "Completed",
@@ -216,6 +235,13 @@ export default function TrackingClient({ orders }: Props) {
   const [vendorDialog, setVendorDialog] = useState<Order | null>(null);
   const [sendingVendorMail, setSendingVendorMail] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [localOrders, setLocalOrders] = useState(orders);
+  const [isPending, startTransition] = useTransition();
+  const refreshTracking = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
 
   const [cancelReason, setCancelReason] = useState("");
   const getVendorMessage = (
@@ -292,7 +318,7 @@ export default function TrackingClient({ orders }: Props) {
     {},
   );
   const filteredOrders = useMemo(() => {
-    return orders
+    return localOrders
       .filter((order) => {
         const query = search.toLowerCase();
         return (
@@ -305,7 +331,7 @@ export default function TrackingClient({ orders }: Props) {
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-  }, [orders, search]);
+  }, [localOrders, search]);
 
   const confirmStatusChange = (order: Order, status: string) => {
     if (status === "Rejected") {
@@ -332,7 +358,21 @@ export default function TrackingClient({ orders }: Props) {
       }
       setLoadingId(order.id);
       await axios.patch(`/api/flights/${order.id}/status`, { status });
-      router.refresh();
+
+      setLocalOrders((prev) =>
+        prev.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                status,
+                updatedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+
+      refreshTracking();
+      refreshTracking();
     } catch (error) {
       console.error(error);
     } finally {
@@ -350,14 +390,31 @@ export default function TrackingClient({ orders }: Props) {
   const handleReject = async () => {
     try {
       if (!rejectingOrder) return;
+
       setLoadingId(rejectingOrder.id);
+
       await axios.patch(`/api/flights/${rejectingOrder.id}/status`, {
         status: "Rejected",
         rejectionReason,
       });
+
+      setLocalOrders((prev) =>
+        prev.map((item) =>
+          item.id === rejectingOrder.id
+            ? {
+                ...item,
+                status: "Rejected",
+                rejectionReason,
+                updatedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+
       setRejectingOrder(null);
       setRejectionReason("");
-      router.refresh();
+
+      refreshTracking();
     } catch (error) {
       console.error(error);
     } finally {
@@ -378,7 +435,7 @@ export default function TrackingClient({ orders }: Props) {
       setCancellingOrder(null);
       setCancelReason("");
 
-      router.refresh();
+      refreshTracking();
     } catch (error) {
       console.error(error);
     } finally {
@@ -406,7 +463,7 @@ export default function TrackingClient({ orders }: Props) {
       setBillAmount("");
       setBillNotes("");
       setBillFile(null);
-      router.refresh();
+      refreshTracking();
     } catch (error) {
       console.error(error);
     } finally {
@@ -571,10 +628,12 @@ export default function TrackingClient({ orders }: Props) {
                   order.status === "Rejected" || order.status === "Cancelled";
                 const isSentToVendor = order.status === "SentToVendor";
                 const isDelivered = order.status === "Delivered";
+                const isOnBoard = order.status === "OnBoard";
 
+                const isDeBoard = order.status === "DeBoard";
                 return (
                   <Card
-                    key={order.id}
+                    key={`${order.id}-${order.status}-${order.updatedAt}`}
                     className={cn(
                       "rounded-3xl border bg-white shadow-sm overflow-hidden transition-shadow hover:shadow-md",
                       isUrgent
@@ -695,7 +754,16 @@ export default function TrackingClient({ orders }: Props) {
 
                                               return;
                                             }
+                                            if (order.status === "Completed") {
+                                              toast({
+                                                title: "Workflow Locked",
+                                                description:
+                                                  "Completed flights cannot be modified.",
+                                                variant: "destructive",
+                                              });
 
+                                              return;
+                                            }
                                             // BLOCK SAME STATUS
                                             if (targetIndex === currentIndex) {
                                               toast({
@@ -807,17 +875,63 @@ export default function TrackingClient({ orders }: Props) {
                                     </Button>
                                   </div>
                                 )}
-
                                 {isDelivered && (
                                   <div className="pt-3 border-t border-slate-100">
-                                    <Button
-                                      onClick={() => openRestoreModal(order)}
-                                      variant="outline"
-                                      className="h-9 px-4 rounded-xl border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-50 transition-all"
+                                    <Link
+                                      href={`/inventory?flightId=${order.id}&tab=onboard`}
                                     >
-                                      <RefreshCcw className="w-3.5 h-3.5 mr-2" />
-                                      Restore Items
-                                    </Button>
+                                      <Button
+                                        className="
+          h-10
+          rounded-xl
+          bg-[#1868A5]
+          hover:bg-[#145588]
+          text-white
+          text-xs
+          font-semibold
+        "
+                                      >
+                                        <Package className="w-4 h-4 mr-2" />
+                                        Add Onboard Item
+                                      </Button>
+                                    </Link>
+                                  </div>
+                                )}
+
+                                {isOnBoard && (
+                                  <div className="pt-3 border-t border-slate-100">
+                                    <Link
+                                      href={`/inventory?flightId=${order.id}&tab=deboard`}
+                                    >
+                                      <Button
+                                        className="
+          h-10
+          rounded-xl
+          bg-emerald-600
+          hover:bg-emerald-700
+          text-white
+          text-xs
+          font-semibold
+        "
+                                      >
+                                        <RefreshCcw className="w-4 h-4 mr-2" />
+                                        Add Deboard Item
+                                      </Button>
+                                    </Link>
+                                  </div>
+                                )}
+
+                                {isDeBoard && (
+                                  <div className="pt-3 border-t border-slate-100">
+                                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                      <p className="text-sm font-semibold text-emerald-700">
+                                        Deboard completed successfully.
+                                      </p>
+
+                                      <p className="mt-1 text-xs text-emerald-600">
+                                        Flight is ready for final completion.
+                                      </p>
+                                    </div>
                                   </div>
                                 )}
 
@@ -1970,7 +2084,7 @@ export default function TrackingClient({ orders }: Props) {
 
                       setVendorDialog(null);
 
-                      router.refresh();
+                      refreshTracking();
                     } catch (error) {
                       console.log(error);
 

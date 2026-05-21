@@ -327,13 +327,13 @@ function OrderPDF({ order }: any) {
         {/* ORDER ITEMS */}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Items</Text>
+          <Text style={styles.sectionTitle}>Flight Items</Text>
 
           <View style={styles.table}>
             <View style={styles.tableHeader}>
               <Text style={styles.colItem}>Item</Text>
 
-              <Text style={styles.colVendor}>Vendor</Text>
+              <Text style={styles.colVendor}>Source</Text>
 
               <Text style={styles.colQty}>Qty</Text>
 
@@ -348,10 +348,26 @@ function OrderPDF({ order }: any) {
               const total =
                 Number(item.price || 0) * Number(item.quantity || 0);
 
+              const isOnboard = item.name?.includes("(ONBOARD)");
               return (
-                <View key={index} style={styles.tableRow}>
+                <View
+                  key={index}
+                  style={{
+                    ...styles.tableRow,
+
+                    backgroundColor: isOnboard ? "#eff6ff" : "#ffffff",
+                  }}
+                >
                   <View style={styles.colItem}>
-                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text
+                      style={{
+                        ...styles.itemName,
+
+                        color: isOnboard ? "#2563eb" : "#0f172a",
+                      }}
+                    >
+                      {item.name}
+                    </Text>
 
                     <Text style={styles.itemCategory}>
                       {item.category || "General"}
@@ -360,9 +376,11 @@ function OrderPDF({ order }: any) {
 
                   <View style={styles.colVendor}>
                     <Text style={styles.vendorText}>
-                      {item.vendorName ||
-                        item.vendor?.name ||
-                        "Grocery Catalog"}
+                      {isOnboard
+                        ? "Aircraft Inventory"
+                        : item.vendorName ||
+                          item.vendor?.name ||
+                          "Grocery Catalog"}
                     </Text>
                   </View>
 
@@ -375,7 +393,11 @@ function OrderPDF({ order }: any) {
                   <Text style={styles.colTotal}>{total.toLocaleString()}</Text>
 
                   <View style={styles.colNotes}>
-                    <Text style={styles.notesText}>{item.notes || "-"}</Text>
+                    <Text style={styles.notesText}>
+                      {isOnboard
+                        ? `Onboard • Reusable / Warehouse Allocation`
+                        : item.notes || "-"}
+                    </Text>
                   </View>
                 </View>
               );

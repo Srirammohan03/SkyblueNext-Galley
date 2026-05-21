@@ -1,3 +1,4 @@
+// app\(dashboard)\catalog\grocery\GroceryOnboard.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";

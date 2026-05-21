@@ -50,7 +50,9 @@ export default function ReceiveDrawer({
     setRows((r) => r.filter((_, idx) => idx !== i));
 
   const updateRow = (i: number, patch: Partial<ReceiveRow>) =>
-    setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+    setRows((r) =>
+      r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)),
+    );
 
   const getItem = (id: string) => items.find((it) => it.id === id);
 
@@ -96,7 +98,7 @@ export default function ReceiveDrawer({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
+    <div className="fixed m-0 inset-0 bg-black/50 z-50 flex justify-end">
       <div className="bg-white w-full max-w-lg h-full flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">

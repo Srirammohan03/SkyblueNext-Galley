@@ -128,12 +128,12 @@ export default function DashboardLayout({
         label: "Food Catalog",
         permission: "view_catalog",
       },
-      {
-        href: "/catalog/grocery",
-        icon: ShoppingBasket,
-        label: "Grocery Catalog",
-        permission: "view_catalog",
-      },
+      // {
+      //   href: "/catalog/grocery",
+      //   icon: ShoppingBasket,
+      //   label: "Grocery Catalog",
+      //   permission: "view_catalog",
+      // },
       {
         href: "/vendors",
         icon: Store,

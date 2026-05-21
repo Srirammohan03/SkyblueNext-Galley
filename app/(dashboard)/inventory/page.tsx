@@ -1,3 +1,4 @@
+// app\(dashboard)\inventory\page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -9,7 +10,9 @@ import AlertsPage from "./alerts/page";
 import { cn } from "@/lib/utils";
 
 export default function InventoryPage() {
-  const [activeTab, setActiveTab] = useState<"catalog" | "warehouse" | "onboard" | "alerts">("catalog");
+  const [activeTab, setActiveTab] = useState<
+    "catalog" | "warehouse" | "onboard" | "alerts"
+  >("catalog");
   const [alertCount, setAlertCount] = useState(0);
 
   // Fetch alert count dynamically to display on the tab badge
@@ -35,16 +38,11 @@ export default function InventoryPage() {
   const tabs = [
     {
       id: "catalog" as const,
-      label: "Inv. Catalog",
+      label: "Grocery/Warehouse",
       icon: BookOpen,
       component: <InventoryCatalogPage />,
     },
-    {
-      id: "warehouse" as const,
-      label: "Warehouse",
-      icon: Warehouse,
-      component: <WarehousePage />,
-    },
+
     {
       id: "onboard" as const,
       label: "Onboard",
@@ -68,7 +66,8 @@ export default function InventoryPage() {
           Inventory Control
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Manage your global grocery catalog, warehouse stock levels, onboard supplies, and reorder alerts.
+          Manage your global grocery catalog, warehouse stock levels, onboard
+          supplies, and reorder alerts.
         </p>
       </div>
 
@@ -86,16 +85,23 @@ export default function InventoryPage() {
                   "flex items-center gap-2.5 pb-4 px-1 text-sm font-bold border-b-2 transition-all relative outline-none",
                   isActive
                     ? "border-[#1868A5] text-[#1868A5]"
-                    : "border-transparent text-slate-400 hover:text-slate-600"
+                    : "border-transparent text-slate-400 hover:text-slate-600",
                 )}
               >
-                <Icon className={cn("w-4.5 h-4.5", isActive ? "text-[#1868A5]" : "text-slate-400")} />
+                <Icon
+                  className={cn(
+                    "w-4.5 h-4.5",
+                    isActive ? "text-[#1868A5]" : "text-slate-400",
+                  )}
+                />
                 <span>{tab.label}</span>
                 {tab.badge !== undefined && (
-                  <span className={cn(
-                    "flex items-center justify-center min-w-5 h-5 rounded-full px-1 text-[10px] font-extrabold text-white animate-pulse shrink-0",
-                    tab.id === "alerts" ? "bg-red-500" : "bg-[#1868A5]"
-                  )}>
+                  <span
+                    className={cn(
+                      "flex items-center justify-center min-w-5 h-5 rounded-full px-1 text-[10px] font-extrabold text-white animate-pulse shrink-0",
+                      tab.id === "alerts" ? "bg-red-500" : "bg-[#1868A5]",
+                    )}
+                  >
                     {tab.badge}
                   </span>
                 )}

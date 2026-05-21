@@ -20,6 +20,8 @@ export default async function TrackingPage() {
           "SentToVendor",
           "Confirmed",
           "Delivered",
+          "OnBoard",
+          "DeBoard",
           "Completed",
           "Rejected",
           "Cancelled",

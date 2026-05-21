@@ -1,3 +1,4 @@
+// prisma\schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -83,7 +84,7 @@ model OrderItem {
   vendorName       String?
   consumedQuantity Int          @default(0)
   restoredQuantity Int          @default(0)
-  CatalogItem      CatalogItem? @relation(fields: [itemId], references: [id])
+  item             CatalogItem? @relation(fields: [itemId], references: [id])
   order            FlightOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   vendor           Vendor?      @relation(fields: [vendorId], references: [id])
 }
@@ -160,7 +161,7 @@ model CatalogItem {
   packLabel             String?
   reorderThresholdType  String                 @default("PACK")
   reorderThresholdValue Int                    @default(5)
-  OrderItem             OrderItem[]
+  orderItems            OrderItem[]
   inventoryBalances     InventoryBalance[]
   inventoryTransactions InventoryTransaction[]
   onboardEligibilities  OnboardEligibility[]
@@ -208,7 +209,7 @@ model OnboardEligibility {
 }
 
 model InventoryBalance {
-  id              String            @id
+  id              String            @id @default(cuid())
   locationId      String
   itemId          String
   onHandBaseUnits Int               @default(0)
@@ -290,6 +291,8 @@ enum OrderStatus {
   Rejected
   Cancelled
   Delivered
+  OnBoard
+  DeBoard
 }
 
 enum LocationType {
