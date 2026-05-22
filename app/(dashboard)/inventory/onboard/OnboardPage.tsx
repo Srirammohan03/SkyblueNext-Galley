@@ -80,6 +80,7 @@ export default function OnboardPage() {
 
   const [rows, setRows] = useState<OnboardRow[]>([]);
   const [showReusableOnly, setShowReusableOnly] = useState(false);
+  const [isDeboardCompleted, setIsDeboardCompleted] = useState(false);
   const [deboardRows, setDeboardRows] = useState<
     {
       itemId: string;
@@ -215,7 +216,10 @@ export default function OnboardPage() {
         flightData.items?.filter((item: any) =>
           item.name?.includes("(ONBOARD)"),
         ) || [];
+      const alreadyDeboarded =
+        flightData.status === "DeBoard" || flightData.status === "Completed";
 
+      setIsDeboardCompleted(alreadyDeboarded);
       setExistingOnboardCount(onboardItems.length);
 
       setDeboardRows(
@@ -408,14 +412,19 @@ export default function OnboardPage() {
   };
 
   const submitDeboard = async () => {
+    // PREVENT MULTIPLE CLICKS
+    if (loading) return;
+
     try {
+      setLoading(true);
+
       const payload = deboardRows.map((r) => ({
         itemId: r.itemId,
         usedQty: r.usedQty,
         remainingQty: r.remainingQty,
       }));
 
-      await fetch("/api/inventory/deboard", {
+      const res = await fetch("/api/inventory/deboard", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -426,12 +435,31 @@ export default function OnboardPage() {
         }),
       });
 
+      if (!res.ok) {
+        const error = await res.json();
+
+        throw new Error(error.error || "Deboard failed");
+      }
+
       toast({
         title: "Deboard Completed",
         description: "Inventory deboarded successfully.",
       });
-    } catch (err) {
+      setIsDeboardCompleted(true);
+      setDeboardRows([]);
+
+      // OPTIONAL REFRESH
+      await loadFlightInventory();
+    } catch (err: any) {
       console.error(err);
+
+      toast({
+        variant: "destructive",
+        title: "Deboard Failed",
+        description: err.message || "Something went wrong",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -915,119 +943,142 @@ export default function OnboardPage() {
 
       {/* DEBOARD */}
       {activeTab === "deboard" && (
-        <div className="space-y-3 pb-24">
-          {filteredDeboardRows.map((row) => (
-            <div
-              key={row.itemId}
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md"
-            >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                {/* LEFT */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="truncate text-lg font-black text-slate-900">
-                      {row.name}
-                    </h3>
+        <>
+          {isDeboardCompleted && (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
 
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-                      {row.category}
-                    </span>
-                  </div>
+                <div>
+                  <p className="font-bold text-emerald-700">
+                    Flight already deboarded
+                  </p>
 
-                  {/* MOBILE INPUT */}
-                  <div className="mt-4 lg:hidden">
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-amber-600">
-                      Used Qty
-                    </label>
-
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={row.usedQty || ""}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-
-                        updateDeboard(
-                          row.itemId,
-                          value === "" ? 0 : parseInt(value),
-                        );
-                      }}
-                      className="h-11 w-full rounded-xl border border-amber-200 bg-amber-50/40 px-3 text-center text-sm font-bold outline-none transition-all focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-500/10"
-                    />
-                  </div>
-                </div>
-
-                {/* RIGHT */}
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                  {/* STATS */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex min-w-[92px] flex-col items-center rounded-2xl bg-[#1868A5]/10 px-3 py-2">
-                      <p className="text-[9px] font-bold uppercase text-[#1868A5]">
-                        Onboard
-                      </p>
-
-                      <p className="mt-1 text-2xl font-black text-[#1868A5]">
-                        {row.onboardQty}
-                      </p>
-                    </div>
-
-                    <div className="flex min-w-[92px] flex-col items-center rounded-2xl bg-emerald-50 px-3 py-2">
-                      <p className="text-[9px] font-bold uppercase text-emerald-600">
-                        Remaining
-                      </p>
-
-                      <p className="mt-1 text-2xl font-black text-emerald-700">
-                        {row.remainingQty}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* DESKTOP INPUT */}
-                  <div className="hidden lg:block lg:w-[150px]">
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-amber-600">
-                      Used Qty
-                    </label>
-
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={row.usedQty || ""}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-
-                        updateDeboard(
-                          row.itemId,
-                          value === "" ? 0 : parseInt(value),
-                        );
-                      }}
-                      className="h-11 w-full rounded-xl border border-amber-200 bg-amber-50/40 px-3 text-center text-sm font-bold outline-none transition-all focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-500/10"
-                    />
-                  </div>
+                  <p className="mt-1 text-sm text-emerald-600">
+                    All onboard inventory items were successfully deboarded for
+                    this flight.
+                  </p>
                 </div>
               </div>
             </div>
-          ))}
-
-          {filteredDeboardRows.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-              <p className="text-sm font-medium text-slate-500">
-                No deboard items found
-              </p>
-            </div>
           )}
+          <div className="space-y-3 pb-24">
+            {!isDeboardCompleted &&
+              filteredDeboardRows.map((row) => (
+                <div
+                  key={row.itemId}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    {/* LEFT */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="truncate text-lg font-black text-slate-900">
+                          {row.name}
+                        </h3>
 
-          {/* ACTION */}
-          <div className="sticky bottom-0 z-30 bg-[#F8FAFC] px-1 py-3">
-            <button
-              type="button"
-              onClick={submitDeboard}
-              disabled={loading || deboardRows.length === 0}
-              className="h-12 w-full rounded-2xl bg-emerald-600 text-sm font-black text-white shadow-xl transition-all hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Processing..." : "Confirm Deboard"}
-            </button>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                          {row.category}
+                        </span>
+                      </div>
+
+                      {/* MOBILE INPUT */}
+                      <div className="mt-4 lg:hidden">
+                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                          Used Qty
+                        </label>
+
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={row.usedQty || ""}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "");
+
+                            updateDeboard(
+                              row.itemId,
+                              value === "" ? 0 : parseInt(value),
+                            );
+                          }}
+                          className="h-11 w-full rounded-xl border border-amber-200 bg-amber-50/40 px-3 text-center text-sm font-bold outline-none transition-all focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-500/10"
+                        />
+                      </div>
+                    </div>
+
+                    {/* RIGHT */}
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                      {/* STATS */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex min-w-[92px] flex-col items-center rounded-2xl bg-[#1868A5]/10 px-3 py-2">
+                          <p className="text-[9px] font-bold uppercase text-[#1868A5]">
+                            Onboard
+                          </p>
+
+                          <p className="mt-1 text-2xl font-black text-[#1868A5]">
+                            {row.onboardQty}
+                          </p>
+                        </div>
+
+                        <div className="flex min-w-[92px] flex-col items-center rounded-2xl bg-emerald-50 px-3 py-2">
+                          <p className="text-[9px] font-bold uppercase text-emerald-600">
+                            Remaining
+                          </p>
+
+                          <p className="mt-1 text-2xl font-black text-emerald-700">
+                            {row.remainingQty}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* DESKTOP INPUT */}
+                      <div className="hidden lg:block lg:w-[150px]">
+                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                          Used Qty
+                        </label>
+
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={row.usedQty || ""}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "");
+
+                            updateDeboard(
+                              row.itemId,
+                              value === "" ? 0 : parseInt(value),
+                            );
+                          }}
+                          className="h-11 w-full rounded-xl border border-amber-200 bg-amber-50/40 px-3 text-center text-sm font-bold outline-none transition-all focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-500/10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {!isDeboardCompleted && filteredDeboardRows.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+                <p className="text-sm font-medium text-slate-500">
+                  No deboard items found
+                </p>
+              </div>
+            )}
+
+            {/* ACTION */}
+            {!isDeboardCompleted && (
+              <div className="sticky bottom-0 z-30 bg-[#F8FAFC] px-1 py-3">
+                <button
+                  type="button"
+                  onClick={submitDeboard}
+                  disabled={loading || deboardRows.length === 0}
+                  className="h-12 w-full rounded-2xl bg-emerald-600 text-sm font-black text-white shadow-xl transition-all hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Processing..." : "Confirm Deboard"}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        </>
       )}
     </div>
   );

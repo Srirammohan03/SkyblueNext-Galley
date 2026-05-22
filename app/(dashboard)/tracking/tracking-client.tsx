@@ -371,7 +371,23 @@ export default function TrackingClient({ orders }: Props) {
         ),
       );
 
-      refreshTracking();
+      // UPDATE CURRENT ORDER ALSO
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                status,
+                updatedAt: new Date().toISOString(),
+              }
+            : null,
+        );
+      }
+
+      if (confirmDialog?.order?.id === order.id) {
+        setConfirmDialog(null);
+      }
+
       refreshTracking();
     } catch (error) {
       console.error(error);
@@ -911,7 +927,7 @@ export default function TrackingClient({ orders }: Props) {
                                         <RefreshCcw className="mr-2 h-4 w-4" />
                                         Add Deboard Item
                                       </Button>
-                                    </Link> 
+                                    </Link>
                                   </div>
                                 )}
 
@@ -928,22 +944,28 @@ export default function TrackingClient({ orders }: Props) {
                                   </div>
                                 )}
 
-                                <div className="flex w-full gap-2 pt-2">
-                                  <button
-                                    onClick={() => setRejectingOrder(order)}
-                                    disabled={loadingId === order.id}
-                                    className="h-10 flex-1 rounded-xl border border-red-200 px-4 text-xs font-semibold text-red-600 transition-all hover:bg-red-50 sm:h-9 sm:flex-none sm:w-auto"
-                                  >
-                                    Reject
-                                  </button>
-                                  <button
-                                    onClick={() => setCancellingOrder(order)}
-                                    disabled={loadingId === order.id}
-                                    className="h-10 flex-1 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-500 transition-all hover:bg-slate-50 sm:h-9 sm:flex-none sm:w-auto"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
+                                {/* HIDE REJECT/CANCEL AFTER ONBOARD */}
+                                {!["OnBoard", "DeBoard", "Completed"].includes(
+                                  order.status,
+                                ) && (
+                                  <div className="flex w-full gap-2 pt-2">
+                                    <button
+                                      onClick={() => setRejectingOrder(order)}
+                                      disabled={loadingId === order.id}
+                                      className="h-10 flex-1 rounded-xl border border-red-200 px-4 text-xs font-semibold text-red-600 transition-all hover:bg-red-50 sm:h-9 sm:flex-none sm:w-auto"
+                                    >
+                                      Reject
+                                    </button>
+
+                                    <button
+                                      onClick={() => setCancellingOrder(order)}
+                                      disabled={loadingId === order.id}
+                                      className="h-10 flex-1 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-500 transition-all hover:bg-slate-50 sm:h-9 sm:flex-none sm:w-auto"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
 

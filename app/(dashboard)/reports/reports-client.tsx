@@ -280,15 +280,17 @@ export default function ReportsClient() {
 
     // ================= INVENTORY REPORTS =================
     else if (mainTab === "inventory") {
-      data.forEach((item: any) => {
-        exportData.push({
-          itemName: item.name || "-",
-          totalLoaded: item.totalLoaded || 0,
-          totalRestored: item.totalRestored || 0,
-          totalConsumed: item.totalConsumed || 0,
-          flightsUsed: item.flightsUsed || 0,
+      data
+        .filter((item: any) => item.totalConsumed > 0)
+        .forEach((item: any) => {
+          exportData.push({
+            itemName: item.name || "-",
+            totalLoaded: item.totalLoaded || 0,
+            totalRestored: item.totalRestored || 0,
+            totalConsumed: item.totalConsumed || 0,
+            flightsUsed: item.flightsUsed || 0,
+          });
         });
-      });
     }
 
     return exportData;
@@ -831,7 +833,8 @@ export default function ReportsClient() {
                               Loading inventory data...
                             </td>
                           </tr>
-                        ) : data?.length === 0 ? (
+                        ) : data?.filter((item: any) => item.totalConsumed > 0)
+                            .length === 0 ? (
                           <tr>
                             <td
                               colSpan={inventoryType === "grocery" ? 5 : 4}
@@ -842,32 +845,34 @@ export default function ReportsClient() {
                             </td>
                           </tr>
                         ) : (
-                          data?.map((item: any, idx: number) => (
-                            <tr
-                              key={idx}
-                              className="hover:bg-gray-50/50 transition-colors"
-                            >
-                              <td className="px-6 py-4 font-medium text-gray-900">
-                                {item.name}
-                              </td>
-                              <td className="px-6 py-4 text-right text-gray-600">
-                                {item.totalLoaded}
-                              </td>
-                              {inventoryType === "grocery" && (
-                                <td className="px-6 py-4 text-right text-gray-600">
-                                  {item.totalRestored}
+                          data
+                            ?.filter((item: any) => item.totalConsumed > 0)
+                            .map((item: any, idx: number) => (
+                              <tr
+                                key={idx}
+                                className="hover:bg-gray-50/50 transition-colors"
+                              >
+                                <td className="px-6 py-4 font-medium text-gray-900">
+                                  {item.name}
                                 </td>
-                              )}
-                              <td className="px-6 py-4 text-right font-bold text-blue-600">
-                                {item.totalConsumed}
-                              </td>
-                              <td className="px-6 py-4 text-right text-gray-500">
-                                <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600">
-                                  {item.flightsUsed} flights
-                                </span>
-                              </td>
-                            </tr>
-                          ))
+                                <td className="px-6 py-4 text-right text-gray-600">
+                                  {item.totalLoaded}
+                                </td>
+                                {inventoryType === "grocery" && (
+                                  <td className="px-6 py-4 text-right text-gray-600">
+                                    {item.totalRestored}
+                                  </td>
+                                )}
+                                <td className="px-6 py-4 text-right font-bold text-blue-600">
+                                  {item.totalConsumed}
+                                </td>
+                                <td className="px-6 py-4 text-right text-gray-500">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600">
+                                    {item.flightsUsed} flights
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
                         )}
                       </tbody>
                     </table>
