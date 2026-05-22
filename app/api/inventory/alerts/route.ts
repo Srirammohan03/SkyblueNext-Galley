@@ -3,19 +3,20 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-export async function GET(req: Request) {
+
+
+export async function GET() {
   const session = await auth();
-  if (!session?.user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
-  const includeAcknowledged = searchParams.get("includeAcknowledged") === "true";
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
 
-  const where: any = {};
-  if (!includeAcknowledged) where.acknowledgedAt = null;
-
-  const alerts = await prisma.inventoryAlert.findMany({
-    where,
+  // GET LIVE INVENTORY BALANCES
+  const balances = await prisma.inventoryBalance.findMany({
     include: {
       item: {
         select: {
@@ -28,35 +29,42 @@ export async function GET(req: Request) {
           packLabel: true,
           reorderThresholdType: true,
           reorderThresholdValue: true,
+          type: true,
         },
       },
+
       location: {
-        select: { id: true, name: true, type: true },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+        },
       },
     },
-    orderBy: { currentBaseUnits: "asc" },
+
+    orderBy: {
+      onHandBaseUnits: "asc",
+    },
   });
 
-  return NextResponse.json(alerts);
+  // GENERATE LOW STOCK ALERTS DYNAMICALLY
+  const activeAlerts = balances.filter((balance) => {
+    // only grocery
+    if (balance.item.type !== "grocery") {
+      return false;
+    }
+
+    // threshold
+    const threshold = 10;
+
+    return balance.onHandBaseUnits <= threshold;
+  });
+
+  return NextResponse.json(activeAlerts);
 }
 
-export async function PATCH(req: Request) {
-  const session = await auth();
-  if (!session?.user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const userId = (session.user as any).id as string;
-  const body = await req.json();
-  const { alertId } = body;
-
-  if (!alertId) {
-    return NextResponse.json({ error: "alertId required" }, { status: 400 });
-  }
-
-  const updated = await prisma.inventoryAlert.update({
-    where: { id: alertId },
-    data: { acknowledgedAt: new Date(), acknowledgedBy: userId },
+export async function PATCH() {
+  return NextResponse.json({
+    success: true,
   });
-
-  return NextResponse.json(updated);
 }

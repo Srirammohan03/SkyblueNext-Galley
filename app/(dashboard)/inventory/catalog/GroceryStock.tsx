@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Papa, { ParseResult } from "papaparse";
-
+import { useSearchParams } from "next/navigation";
 // import ReceiveDrawer from "@/components/inventory/ReceiveDrawer";
 
 import {
@@ -82,6 +82,7 @@ export default function GroceryStock() {
   const [activeCategory, setActiveCategory] = useState("All");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
 
   const initialFormState: Partial<CatalogItem> = {
     type: "grocery",
@@ -103,7 +104,7 @@ export default function GroceryStock() {
     packSize: null,
     packLabel: "",
     reorderThresholdType: "PACK",
-    reorderThresholdValue: 5,
+    reorderThresholdValue: 10,
   };
 
   const [newItem, setNewItem] =
@@ -175,7 +176,13 @@ export default function GroceryStock() {
       setLoading(false);
     }
   }, []);
+  useEffect(() => {
+    const receive = searchParams.get("receive");
 
+    if (receive === "true" && warehouseLocation) {
+      setShowReceive(true);
+    }
+  }, [searchParams, warehouseLocation]);
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -395,7 +402,7 @@ export default function GroceryStock() {
             <RefreshCw className="w-4 h-4" />
           </button>
 
-          {warehouseLocation && (
+          {/* {warehouseLocation && (
             <button
               onClick={() => setShowReceive(true)}
               className="h-11 px-4 rounded-xl bg-[#1868A5] text-white text-sm font-semibold hover:bg-[#155a8a] flex items-center gap-2"
@@ -403,7 +410,7 @@ export default function GroceryStock() {
               <Package className="w-4 h-4" />
               Receive Stock
             </button>
-          )}
+          )} */}
 
           <button
             onClick={() => {
@@ -658,7 +665,7 @@ export default function GroceryStock() {
       </div>
 
       {/* Receive Drawer */}
-      {showReceive && warehouseLocation && (
+      {/* {showReceive && warehouseLocation && (
         <ReceiveDrawer
           warehouseLocationId={warehouseLocation.id}
           items={items.map((item) => ({
@@ -676,7 +683,7 @@ export default function GroceryStock() {
             loadData();
           }}
         />
-      )}
+      )} */}
 
       {/* Add/Edit Modal */}
       {isModalOpen && (

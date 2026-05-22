@@ -16,15 +16,13 @@ import {
 } from "@/lib/inventory/conversion";
 import { getThresholdBaseUnits } from "@/lib/inventory/threshold";
 import ExportCsvButton from "@/components/reports/ExportCsvButton";
-
+import { useSearchParams } from "next/navigation";
 interface Alert {
   id: string;
   itemId: string;
   locationId: string;
   severity: string;
-  thresholdType: string;
-  thresholdValue: number;
-  currentBaseUnits: number;
+  onHandBaseUnits: number;
   createdAt: string;
   acknowledgedAt: string | null;
   item: CatalogItemConfig & {
@@ -42,8 +40,16 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
-
-  const categories = ["All", "Alcohol", "Bakery", "Beverages", "Dairy", "Snacks", "Supplies"];
+  const searchParams = useSearchParams();
+  const categories = [
+    "All",
+    "Alcohol",
+    "Bakery",
+    "Beverages",
+    "Dairy",
+    "Snacks",
+    "Supplies",
+  ];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,16 +67,20 @@ export default function AlertsPage() {
   useEffect(() => {
     load();
   }, [load]);
-
   const handleAcknowledge = async (alertId: string) => {
     setAcknowledging(alertId);
+
     try {
       await fetch("/api/inventory/alerts", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ alertId }),
       });
-      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+
+      // reload alerts
+      await load();
     } catch (err) {
       console.error(err);
     } finally {
@@ -86,18 +96,19 @@ export default function AlertsPage() {
   // Sort by coverage (lowest first = most urgent)
   const sorted = [...filtered].sort(
     (a, b) =>
-      a.currentBaseUnits /
-        Math.max(1, getThresholdBaseUnits(a.item as any)) -
-      b.currentBaseUnits /
-        Math.max(1, getThresholdBaseUnits(b.item as any)),
+      a.onHandBaseUnits / Math.max(1, getThresholdBaseUnits(a.item as any)) -
+      b.onHandBaseUnits / Math.max(1, getThresholdBaseUnits(b.item as any)),
   );
 
   const csvData = sorted.map((a) => ({
     Item: a.item.name,
     Category: a.item.category,
-    "On Hand": displayWarehouseStock(a.currentBaseUnits, a.item as CatalogItemConfig),
-    "On Hand (units)": a.currentBaseUnits,
-    Threshold: `${a.thresholdValue} ${a.thresholdType === "PACK" ? "packs" : "units"}`,
+    "On Hand": displayWarehouseStock(
+      a.onHandBaseUnits,
+      a.item as CatalogItemConfig,
+    ),
+    "On Hand (units)": a.onHandBaseUnits,
+    Threshold: "10 units",
     Location: a.location.name,
     "Alert Since": new Date(a.createdAt).toLocaleDateString(),
   }));
@@ -169,7 +180,7 @@ export default function AlertsPage() {
           {sorted.map((alert) => {
             const thresholdBu = getThresholdBaseUnits(alert.item as any);
             const coverage =
-              thresholdBu > 0 ? alert.currentBaseUnits / thresholdBu : 0;
+              thresholdBu > 0 ? alert.onHandBaseUnits / thresholdBu : 0;
             const pct = Math.min(100, Math.round(coverage * 100));
 
             return (
@@ -193,15 +204,11 @@ export default function AlertsPage() {
                     <p className="text-sm text-slate-500">
                       <span className="font-semibold text-red-600">
                         {displayWarehouseStock(
-                          alert.currentBaseUnits,
+                          alert.onHandBaseUnits,
                           alert.item as CatalogItemConfig,
                         )}
                       </span>{" "}
-                      on hand · Threshold:{" "}
-                      <strong>
-                        {alert.thresholdValue}{" "}
-                        {alert.thresholdType === "PACK" ? "packs" : "units"}
-                      </strong>
+                      on hand · Threshold: <strong>10 units</strong>
                     </p>
                     {/* Coverage bar */}
                     <div className="mt-2 flex items-center gap-2">
@@ -218,7 +225,7 @@ export default function AlertsPage() {
 
                 <div className="flex gap-2 shrink-0">
                   <a
-                    href="/inventory/warehouse"
+                    href="/inventory?tab=catalog&receive=true"
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1868A5] text-white text-xs font-semibold hover:bg-[#155a8a] transition-colors"
                   >
                     <Package className="w-3.5 h-3.5" />
@@ -232,6 +239,11 @@ export default function AlertsPage() {
                     <CheckCircle className="w-3.5 h-3.5" />
                     {acknowledging === alert.id ? "…" : "Acknowledge"}
                   </button>
+                  {alert.acknowledgedAt && (
+                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">
+                      Acknowledged
+                    </span>
+                  )}
                 </div>
               </div>
             );

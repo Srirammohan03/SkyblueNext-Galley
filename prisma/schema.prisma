@@ -160,7 +160,7 @@ model CatalogItem {
   packSize              Int?
   packLabel             String?
   reorderThresholdType  String                 @default("PACK")
-  reorderThresholdValue Int                    @default(5)
+  reorderThresholdValue Int                    @default(10)
   orderItems            OrderItem[]
   inventoryBalances     InventoryBalance[]
   inventoryTransactions InventoryTransaction[]

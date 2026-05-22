@@ -1,4 +1,4 @@
-// app\(dashboard)\inventory\page.tsx
+// app/(dashboard)/inventory/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -8,13 +8,33 @@ import WarehousePage from "./warehouse/page";
 import OnboardPage from "./onboard/page";
 import AlertsPage from "./alerts/page";
 import { cn } from "@/lib/utils";
-
+import { useSearchParams } from "next/navigation";
 export default function InventoryPage() {
-  const [activeTab, setActiveTab] = useState<
-    "catalog" | "warehouse" | "onboard" | "alerts"
-  >("catalog");
-  const [alertCount, setAlertCount] = useState(0);
+  const searchParams = useSearchParams();
 
+  const tabParam = searchParams.get("tab");
+
+  const validTabs = ["catalog", "onboard", "deboard", "alerts"];
+
+  const initialTab = validTabs.includes(tabParam || "")
+    ? (tabParam as "catalog" | "onboard" | "alerts")
+    : "catalog";
+
+  const [activeTab, setActiveTab] = useState<"catalog" | "onboard" | "alerts">(
+    initialTab,
+  );
+  const [alertCount, setAlertCount] = useState(0);
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+
+    if (tab && ["catalog", "onboard", "deboard", "alerts"].includes(tab)) {
+      if (tab === "deboard") {
+        setActiveTab("onboard");
+      } else {
+        setActiveTab(tab as "catalog" | "onboard" | "alerts");
+      }
+    }
+  }, [searchParams]);
   // Fetch alert count dynamically to display on the tab badge
   const fetchAlertCount = async () => {
     try {
@@ -42,7 +62,6 @@ export default function InventoryPage() {
       icon: BookOpen,
       component: <InventoryCatalogPage />,
     },
-
     {
       id: "onboard" as const,
       label: "Onboard",
@@ -59,30 +78,31 @@ export default function InventoryPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Title section */}
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-slate-900">
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
           Inventory Control
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
           Manage your global grocery catalog, warehouse stock levels, onboard
           supplies, and reorder alerts.
         </p>
       </div>
 
-      {/* Premium Tab Bar */}
-      <div className="flex border-b border-slate-200 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex space-x-6 min-w-max">
+      {/* Premium Tab Bar - Responsive, No Scrollbars */}
+      <div className="border-b border-slate-200">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 sm:gap-6">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2.5 pb-4 px-1 text-sm font-bold border-b-2 transition-all relative outline-none",
+                  "relative flex items-center gap-1.5 sm:gap-2.5 border-b-2 px-1 pb-3 sm:pb-4 text-[11px] sm:text-sm font-bold tracking-tight outline-none transition-all whitespace-nowrap",
                   isActive
                     ? "border-[#1868A5] text-[#1868A5]"
                     : "border-transparent text-slate-400 hover:text-slate-600",
@@ -90,7 +110,7 @@ export default function InventoryPage() {
               >
                 <Icon
                   className={cn(
-                    "w-4.5 h-4.5",
+                    "h-3.5 w-3.5 sm:h-4.5 sm:w-4.5",
                     isActive ? "text-[#1868A5]" : "text-slate-400",
                   )}
                 />
@@ -98,7 +118,8 @@ export default function InventoryPage() {
                 {tab.badge !== undefined && (
                   <span
                     className={cn(
-                      "flex items-center justify-center min-w-5 h-5 rounded-full px-1 text-[10px] font-extrabold text-white animate-pulse shrink-0",
+                      "flex shrink-0 items-center justify-center rounded-full px-1.5 font-extrabold text-white animate-pulse",
+                      "h-4 min-w-[16px] text-[9px] sm:h-5 sm:min-w-[20px] sm:text-[10px]",
                       tab.id === "alerts" ? "bg-red-500" : "bg-[#1868A5]",
                     )}
                   >

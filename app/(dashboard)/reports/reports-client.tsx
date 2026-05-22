@@ -363,29 +363,31 @@ export default function ReportsClient() {
             onValueChange={(val) => setMainTab(val as ReportType)}
             className="w-full"
           >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <TabsList className="bg-gray-100 p-1 rounded-xl h-auto">
+            <div className="mb-6 flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+              {/* TABS: Added w-full and flex-wrap so they stack perfectly on narrow screens */}
+              <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-xl bg-gray-100 p-1 sm:w-auto">
                 <TabsTrigger
                   value="flights"
-                  className="rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                  className="flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm sm:flex-none sm:px-4 sm:text-sm"
                 >
                   Flight Reports
                 </TabsTrigger>
                 <TabsTrigger
                   value="inventory"
-                  className="rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                  className="flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm sm:flex-none sm:px-4 sm:text-sm"
                 >
                   Global Inventory
                 </TabsTrigger>
                 <TabsTrigger
                   value="vendors"
-                  className="rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                  className="flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm sm:flex-none sm:px-4 sm:text-sm"
                 >
                   Vendor Reports
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              {/* ACTIONS: Set to flex-row w-full so buttons share screen width on mobile */}
+              <div className="flex w-full flex-row items-center gap-3 sm:w-auto">
                 {data && data.length > 0 && (
                   <>
                     <Button
@@ -396,19 +398,22 @@ export default function ReportsClient() {
                           getReportTitle().toLowerCase().replace(/\s+/g, "-"),
                         )
                       }
-                      className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 rounded-xl"
+                      className="flex h-10 flex-1 items-center justify-center rounded-xl border-green-200 bg-green-50 px-3 text-xs font-semibold text-green-700 transition-all hover:bg-green-100 hover:text-green-800 sm:flex-none sm:px-4 sm:text-sm"
                     >
-                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      <FileSpreadsheet className="mr-1.5 h-4 w-4 shrink-0 sm:mr-2" />
                       Export Excel
                     </Button>
-                    <ReportPdfButton
-                      title={getReportTitle()}
-                      columns={pdfColumns}
-                      data={data}
-                      reportType={mainTab}
-                      inventoryType={inventoryType}
-                      flatData={pdfData}
-                    />
+
+                    <div className="flex flex-1 sm:flex-none [&>*]:w-full">
+                      <ReportPdfButton
+                        title={getReportTitle()}
+                        columns={pdfColumns}
+                        data={data}
+                        reportType={mainTab}
+                        inventoryType={inventoryType}
+                        flatData={pdfData}
+                      />
+                    </div>
                   </>
                 )}
               </div>
@@ -455,12 +460,13 @@ export default function ReportsClient() {
                 onValueChange={setFlightStatus}
                 className="w-full"
               >
-                <TabsList className="bg-transparent border-b border-gray-200 rounded-none w-full justify-start h-auto p-0 mb-6 space-x-6">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-x-6 border-b border-gray-200 bg-transparent p-0 mb-6">
                   {["Completed", "Rejected", "Cancelled"].map((status) => (
                     <TabsTrigger
                       key={status}
                       value={status}
-                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-1 py-3 text-sm font-medium text-gray-500 data-[state=active]:text-blue-700"
+                      onClick={() => setFlightStatus(status)}
+                      className="rounded-none border-b-2 border-transparent px-1 py-3 text-xs font-medium text-gray-500 transition-all data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-700 data-[state=active]:shadow-none sm:text-sm"
                     >
                       {status} Flights
                     </TabsTrigger>
@@ -594,7 +600,7 @@ export default function ReportsClient() {
                           {/* Accordion Content */}
                           {isExpanded && (
                             <div className="border-t border-gray-100 bg-gray-50/30 p-4 sm:p-6 space-y-8">
-                              {/* Onboard Items */}
+                              {/* Onboard Items Section */}
                               <div>
                                 <h4 className="text-sm font-bold text-gray-900 mb-1">
                                   Onboard Items
@@ -603,104 +609,88 @@ export default function ReportsClient() {
                                   All items ordered for this flight
                                 </p>
 
-                                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-xs text-left">
-                                      <thead className="text-gray-500 uppercase bg-gray-50 border-b border-gray-100 font-semibold">
-                                        <tr>
-                                          <th className="px-4 py-3 w-12 text-center">
-                                            S.No
-                                          </th>
-                                          <th className="px-4 py-3">Item</th>
-                                          <th className="px-4 py-3">
-                                            Category
-                                          </th>
-                                          <th className="px-4 py-3">Vendor</th>
-                                          <th className="px-4 py-3 text-right">
-                                            Qty
-                                          </th>
-                                          <th className="px-4 py-3 text-right">
-                                            Unit Price
-                                          </th>
-                                          <th className="px-4 py-3 text-right">
-                                            Total
-                                          </th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-100">
-                                        {flight.items?.length > 0 ? (
-                                          flight.items.map(
-                                            (item: any, idx: number) => (
-                                              <tr
-                                                key={idx}
-                                                className="hover:bg-gray-50/50"
-                                              >
-                                                <td className="px-4 py-3 text-center text-gray-500 font-medium">
-                                                  {idx + 1}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                  <div className="font-semibold text-gray-900">
-                                                    {item.name}
-                                                  </div>
-                                                  <div className="text-[10px] text-gray-500 truncate max-w-[200px]">
-                                                    {item.notes || "-"}
-                                                  </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-gray-600">
-                                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-[10px]">
-                                                    {item.category || "General"}
-                                                  </span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 text-[10px] whitespace-nowrap">
-                                                    {item.vendorName ||
-                                                      "Catalog"}
-                                                  </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-bold">
-                                                  {item.quantity}
-                                                </td>
-                                                <td className="px-4 py-3 text-right text-gray-600">
-                                                  ₹
-                                                  {(
-                                                    item.price || 0
-                                                  ).toLocaleString()}
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                                                  ₹
-                                                  {(
-                                                    (item.price || 0) *
-                                                    (item.quantity || 0)
-                                                  ).toLocaleString()}
-                                                </td>
-                                              </tr>
-                                            ),
-                                          )
-                                        ) : (
-                                          <tr>
-                                            <td
-                                              colSpan={7}
-                                              className="px-4 py-6 text-center text-gray-500"
+                                {/* WRAPPER: Added 'w-full' and 'overflow-x-auto' to contain the table */}
+                                <div className="w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                                  <table className="w-full min-w-[500px] text-left text-xs">
+                                    <thead className="bg-gray-50 font-semibold uppercase text-gray-500">
+                                      <tr>
+                                        <th className="px-4 py-3 text-center w-12">
+                                          S.No
+                                        </th>
+                                        <th className="px-4 py-3">Item</th>
+                                        <th className="px-4 py-3">Category</th>
+                                        <th className="px-4 py-3">Vendor</th>
+                                        <th className="px-4 py-3 text-right">
+                                          Qty
+                                        </th>
+                                        <th className="px-4 py-3 text-right">
+                                          Price
+                                        </th>
+                                        <th className="px-4 py-3 text-right">
+                                          Total
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {flight.items?.length > 0 ? (
+                                        flight.items.map(
+                                          (item: any, idx: number) => (
+                                            <tr
+                                              key={idx}
+                                              className="hover:bg-gray-50/50"
                                             >
-                                              No items found
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </tbody>
-                                    </table>
+                                              <td className="px-4 py-3 text-center text-gray-500">
+                                                {idx + 1}
+                                              </td>
+                                              <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                                                {item.name}
+                                              </td>
+                                              <td className="px-4 py-3 text-gray-600">
+                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px]">
+                                                  {item.category || "General"}
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-green-700 whitespace-nowrap">
+                                                {item.vendorName || "Catalog"}
+                                              </td>
+                                              <td className="px-4 py-3 text-right font-bold">
+                                                {item.quantity}
+                                              </td>
+                                              <td className="px-4 py-3 text-right text-gray-600">
+                                                ₹
+                                                {Number(
+                                                  item.price,
+                                                ).toLocaleString()}
+                                              </td>
+                                              <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                                                ₹
+                                                {(
+                                                  item.price * item.quantity
+                                                ).toLocaleString()}
+                                              </td>
+                                            </tr>
+                                          ),
+                                        )
+                                      ) : (
+                                        <tr>
+                                          <td
+                                            colSpan={7}
+                                            className="px-4 py-6 text-center text-gray-500"
+                                          >
+                                            No items found
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {/* Footer Total Bar */}
+                                <div className="flex items-center justify-between rounded-b-xl bg-[#1868A5] px-4 py-3 text-sm text-white">
+                                  <div className="font-bold">
+                                    Total Ordered Value
                                   </div>
-                                  <div className="bg-[#1868A5] text-white px-4 py-3 flex justify-between items-center text-sm">
-                                    <div>
-                                      <div className="font-bold">
-                                        Ordered Items Total
-                                      </div>
-                                      <div className="text-[10px] text-white/70">
-                                        Total ordered value
-                                      </div>
-                                    </div>
-                                    <div className="font-bold text-lg">
-                                      ₹{totalValue.toLocaleString()}
-                                    </div>
+                                  <div className="font-bold text-lg">
+                                    ₹{totalValue.toLocaleString()}
                                   </div>
                                 </div>
                               </div>
@@ -717,78 +707,67 @@ export default function ReportsClient() {
                                       Returned / restored onboard items
                                     </p>
 
-                                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                                      <div className="overflow-x-auto">
-                                        <table className="w-full text-xs text-left">
-                                          <thead className="text-gray-500 uppercase bg-gray-50 border-b border-gray-100 font-semibold">
-                                            <tr>
-                                              <th className="px-4 py-3 w-12 text-center">
-                                                S.No
-                                              </th>
-                                              <th className="px-4 py-3">
-                                                Item
-                                              </th>
-                                              <th className="px-4 py-3 text-right">
-                                                Restored Qty
-                                              </th>
-                                              <th className="px-4 py-3">
-                                                Restored By
-                                              </th>
-                                              <th className="px-4 py-3 text-right">
-                                                Date
-                                              </th>
-                                            </tr>
-                                          </thead>
-                                          <tbody className="divide-y divide-gray-100">
-                                            {flight?.restoredItems?.map(
-                                              (ri: any, idx: number) => {
-                                                const relatedItem =
-                                                  flight?.items?.find(
-                                                    (i: any) =>
-                                                      i.id === ri.itemId,
-                                                  ) || { name: "Unknown Item" };
-                                                return (
-                                                  <tr
-                                                    key={idx}
-                                                    className="hover:bg-gray-50/50"
-                                                  >
-                                                    <td className="px-4 py-3 text-center text-gray-500 font-medium">
-                                                      {idx + 1}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                      <div className="font-semibold text-gray-900">
-                                                        {relatedItem.name}
-                                                      </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right font-bold text-green-600">
-                                                      {ri.returnedQty}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-gray-600">
-                                                      {ri.restoredBy || "-"}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-500">
-                                                      {(() => {
-                                                        try {
-                                                          return ri.restoredAt
-                                                            ? format(
-                                                                new Date(
-                                                                  ri.restoredAt,
-                                                                ),
-                                                                "dd MMM yy, HH:mm",
-                                                              )
-                                                            : "-";
-                                                        } catch (e) {
-                                                          return "-";
-                                                        }
-                                                      })()}
-                                                    </td>
-                                                  </tr>
-                                                );
-                                              },
-                                            )}
-                                          </tbody>
-                                        </table>
-                                      </div>
+                                    {/* WRAPPER: Added 'w-full overflow-x-auto' to prevent layout break */}
+                                    <div className="w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                                      <table className="w-full min-w-[500px] text-left text-xs">
+                                        <thead className="bg-gray-50 font-semibold uppercase text-gray-500">
+                                          <tr>
+                                            <th className="px-4 py-3 text-center w-12">
+                                              S.No
+                                            </th>
+                                            <th className="px-4 py-3">Item</th>
+                                            <th className="px-4 py-3 text-right">
+                                              Restored Qty
+                                            </th>
+                                            {/* <th className="px-4 py-3">
+                                              Restored By
+                                            </th> */}
+                                            <th className="px-4 py-3 text-right">
+                                              Date
+                                            </th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                          {flight.restoredItems.map(
+                                            (ri: any, idx: number) => {
+                                              const relatedItem =
+                                                flight?.items?.find(
+                                                  (i: any) =>
+                                                    i.id === ri.itemId,
+                                                ) || { name: "Unknown Item" };
+                                              return (
+                                                <tr
+                                                  key={idx}
+                                                  className="hover:bg-gray-50/50"
+                                                >
+                                                  <td className="px-4 py-3 text-center text-gray-500">
+                                                    {idx + 1}
+                                                  </td>
+                                                  <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                                                    {relatedItem.name}
+                                                  </td>
+                                                  <td className="px-4 py-3 text-right font-bold text-green-600">
+                                                    {ri.returnedQty}
+                                                  </td>
+                                                  {/* <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                                                    {ri.restoredBy?.name || "-"}
+                                                  </td> */}
+                                                  <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
+                                                    {ri.restoredAt
+                                                      ? format(
+                                                          new Date(
+                                                            ri.restoredAt,
+                                                          ),
+                                                          "dd MMM yy, HH:mm",
+                                                        )
+                                                      : "-"}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            },
+                                          )}
+                                        </tbody>
+                                      </table>
                                     </div>
                                   </div>
                                 )}

@@ -1,3 +1,5 @@
+// app\api\reports\route.ts
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -7,7 +9,7 @@ export async function GET(request: Request) {
   const startDateStr = searchParams.get("startDate");
   const endDateStr = searchParams.get("endDate");
   const search = searchParams.get("search") || "";
-  
+
   // parse dates
   let dateFilter: any = {};
   if (startDateStr && endDateStr && startDateStr !== 'undefined' && endDateStr !== 'undefined') {
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
   try {
     if (reportType === "flights") {
       const status = searchParams.get("status") || "Completed";
-      
+
       const flights = await prisma.flightOrder.findMany({
         where: {
           status: status as any,
@@ -37,78 +39,230 @@ export async function GET(request: Request) {
         },
         orderBy: { date: "desc" },
       });
-      
+
       return NextResponse.json(flights);
     }
-    
+
     if (reportType === "inventory") {
-      const type = searchParams.get("type") || "grocery"; // or "food"
-      
-      const items = await prisma.orderItem.findMany({
-        where: {
-          type: type,
-          name: { contains: search, mode: "insensitive" },
-          order: {
-            status: { in: ["Completed", "Delivered"] },
-            ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
-          }
-        },
-        include: {
-          order: true,
-        }
-      });
-      
-      // Fetch restored items for the matching orders
-      const orderIds = [...new Set(items.map(i => i.orderId))];
-      const restoredItems = await prisma.restoredItem.findMany({
-        where: {
-          flightOrderId: { in: orderIds },
-        }
-      });
 
-      // Group restored items by orderId + itemId
-      const restoredMap: Record<string, number> = {};
-      restoredItems.forEach(ri => {
-        const key = `${ri.flightOrderId}_${ri.itemId}`;
-        restoredMap[key] = (restoredMap[key] || 0) + ri.returnedQty;
-      });
+      const type =
+        searchParams.get("type") || "grocery";
 
-      // Group by name
-      const grouped = items.reduce((acc, item) => {
-        if (!acc[item.name]) {
-          acc[item.name] = {
+      // =====================================================
+      // GROCERY / WAREHOUSE INVENTORY
+      // =====================================================
+
+      if (type === "grocery") {
+
+        const warehouse =
+          await prisma.inventoryLocation.findFirst({
+            where: {
+              type: "WAREHOUSE",
+            },
+          });
+
+        const items =
+          await prisma.catalogItem.findMany({
+            where: {
+              type: "grocery",
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          });
+
+        const transactions =
+          await prisma.inventoryTransaction.findMany({
+            where: {
+              ...(Object.keys(dateFilter).length > 0
+                ? {
+                  createdAt: dateFilter,
+                }
+                : {}),
+            },
+          });
+
+        const restoredItems =
+          await prisma.restoredItem.findMany();
+
+        const balances =
+          warehouse
+            ? await prisma.inventoryBalance.findMany({
+              where: {
+                locationId: warehouse.id,
+              },
+            })
+            : [];
+
+        const grouped = items.map((item) => {
+
+          // TOTAL LOADED
+          const totalLoaded =
+            transactions
+              .filter(
+                (tx) =>
+                  tx.itemId === item.id &&
+                  tx.type === "TRANSFER"
+              )
+              .reduce(
+                (sum, tx) =>
+                  sum + tx.baseUnits,
+                0
+              );
+
+          // TOTAL RESTORED
+          const totalRestored =
+            restoredItems.reduce((sum, ri) => {
+
+              const relatedTx =
+                transactions.find(
+                  (tx) =>
+                    tx.flightId === ri.flightOrderId &&
+                    tx.itemId === item.id
+                );
+
+              if (!relatedTx) {
+                return sum;
+              }
+
+              return sum + ri.returnedQty;
+
+            }, 0);
+
+          // TOTAL CONSUMED
+          const totalConsumed =
+            totalLoaded - totalRestored;
+
+          // FLIGHTS USED
+          const flightsUsed =
+            new Set(
+              transactions
+                .filter(
+                  (tx) =>
+                    tx.itemId === item.id &&
+                    tx.flightId
+                )
+                .map(
+                  (tx) => tx.flightId
+                )
+            ).size;
+
+          // CURRENT WAREHOUSE STOCK
+          const stock =
+            balances.find(
+              (b) =>
+                b.itemId === item.id
+            )?.onHandBaseUnits || 0;
+
+          return {
             name: item.name,
-            totalLoaded: 0,
-            totalRestored: 0,
-            totalConsumed: 0,
-            flightIds: new Set(),
-          };
-        }
-        
-        const restoredQty = restoredMap[`${item.orderId}_${item.id}`] || item.restoredQuantity || 0;
 
-        acc[item.name].totalLoaded += item.quantity;
-        acc[item.name].totalRestored += restoredQty;
-        
-        const consumed = item.consumedQuantity > 0 
-          ? item.consumedQuantity 
-          : (item.quantity - restoredQty);
-          
-        acc[item.name].totalConsumed += consumed;
-        acc[item.name].flightIds.add(item.orderId);
-        
-        return acc;
-      }, {} as Record<string, any>);
-      
-      const result = Object.values(grouped).map((g: any) => ({
-        name: g.name,
-        totalLoaded: g.totalLoaded,
-        totalRestored: g.totalRestored,
-        totalConsumed: g.totalConsumed,
-        flightsUsed: g.flightIds.size,
-      }));
-      
-      return NextResponse.json(result);
+            totalLoaded,
+
+            totalRestored,
+
+            totalConsumed,
+
+            flightsUsed,
+
+            currentWarehouseStock:
+              stock,
+          };
+        });
+
+        return NextResponse.json(grouped);
+      }
+
+      // =====================================================
+      // FOOD INVENTORY
+      // =====================================================
+
+      if (type === "food") {
+
+        const items =
+          await prisma.orderItem.findMany({
+            where: {
+              type: "food",
+
+              itemId: {
+                not: null,
+              },
+
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+
+              order: {
+                status: {
+                  in: [
+                    "Completed",
+                    "Delivered",
+                  ],
+                },
+
+                ...(Object.keys(dateFilter).length > 0
+                  ? {
+                    date: dateFilter,
+                  }
+                  : {}),
+              },
+            },
+
+            include: {
+              order: true,
+            },
+          });
+
+        const grouped =
+          items.reduce((acc, item) => {
+
+            if (!acc[item.name]) {
+
+              acc[item.name] = {
+                name: item.name,
+
+                totalLoaded: 0,
+
+                totalConsumed: 0,
+
+                flightIds: new Set(),
+              };
+            }
+
+            acc[item.name].totalLoaded +=
+              item.quantity;
+
+            acc[item.name].totalConsumed +=
+              item.quantity;
+
+            acc[item.name].flightIds.add(
+              item.orderId
+            );
+
+            return acc;
+
+          }, {} as Record<string, any>);
+
+        const result =
+          Object.values(grouped).map(
+            (g: any) => ({
+              name: g.name,
+
+              totalLoaded:
+                g.totalLoaded,
+
+              totalConsumed:
+                g.totalConsumed,
+
+              flightsUsed:
+                g.flightIds.size,
+            })
+          );
+
+        return NextResponse.json(result);
+      }
     }
 
     if (reportType === "vendors") {
@@ -136,23 +290,23 @@ export async function GET(request: Request) {
             flights: {}
           };
         }
-        
+
         acc[vendor].totalItemsDelivered += item.quantity;
         acc[vendor].totalFlights.add(item.orderId);
-        
+
         if (!acc[vendor].flights[item.orderId]) {
           acc[vendor].flights[item.orderId] = {
             order: item.order,
             items: []
           };
         }
-        
+
         acc[vendor].flights[item.orderId].items.push({
           name: item.name,
           quantity: item.quantity,
           price: item.price
         });
-        
+
         return acc;
       }, {} as Record<string, any>);
 
@@ -161,12 +315,12 @@ export async function GET(request: Request) {
         totalQty: g.totalItemsDelivered,
         flightsCount: g.totalFlights.size,
         flights: Object.values(g.flights).map((f: any) => ({
-           flightId: f.order.id,
-           flightNumber: f.order.flightNumber,
-           date: f.order.date,
-           route: `${f.order.departure} → ${f.order.arrival}`,
-           items: f.items,
-           totalAmount: f.items.reduce((sum: number, i: any) => sum + ((i.price || 0) * (i.quantity || 0)), 0)
+          flightId: f.order.id,
+          flightNumber: f.order.flightNumber,
+          date: f.order.date,
+          route: `${f.order.departure} → ${f.order.arrival}`,
+          items: f.items,
+          totalAmount: f.items.reduce((sum: number, i: any) => sum + ((i.price || 0) * (i.quantity || 0)), 0)
         })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
       }));
 

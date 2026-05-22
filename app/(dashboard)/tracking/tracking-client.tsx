@@ -723,19 +723,44 @@ export default function TrackingClient({ orders }: Props) {
 
                             {!isTerminal && (
                               <div className="space-y-4">
-                                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                                   Workflow Progress
                                 </p>
 
-                                <div className="flex items-start overflow-x-auto scrollbar-hide pb-2">
+                                {/* HYBRID STEPPER: Vertical on Mobile, Horizontal on Desktop */}
+                                <div className="relative z-0 flex w-full flex-col gap-5 pb-2 sm:flex-row sm:items-start sm:gap-0">
                                   {statusFlow.map((status, idx) => {
                                     const isStepCompleted = currentStep > idx;
                                     const isStepActive = currentStep === idx;
                                     return (
                                       <div
                                         key={status}
-                                        className="flex items-center min-w-[88px] sm:flex-1 last:flex-none"
+                                        className="group relative flex flex-row items-start sm:flex-1 sm:flex-col sm:items-center"
                                       >
+                                        {/* Desktop Horizontal Line */}
+                                        {idx < statusFlow.length - 1 && (
+                                          <div
+                                            className={cn(
+                                              "absolute left-[50%] top-[15px] hidden h-0.5 w-full -z-10 transition-colors sm:block",
+                                              currentStep > idx
+                                                ? "bg-[#1868A5]"
+                                                : "bg-slate-200",
+                                            )}
+                                          />
+                                        )}
+
+                                        {/* Mobile Vertical Line */}
+                                        {idx < statusFlow.length - 1 && (
+                                          <div
+                                            className={cn(
+                                              "absolute bottom-[-20px] left-[13px] top-[28px] w-0.5 -z-10 transition-colors sm:hidden",
+                                              currentStep > idx
+                                                ? "bg-[#1868A5]"
+                                                : "bg-slate-200",
+                                            )}
+                                          />
+                                        )}
+
                                         <button
                                           onClick={() => {
                                             const targetIndex =
@@ -751,7 +776,6 @@ export default function TrackingClient({ orders }: Props) {
                                                   "You cannot move workflow backwards once progressed.",
                                                 variant: "destructive",
                                               });
-
                                               return;
                                             }
                                             if (order.status === "Completed") {
@@ -761,7 +785,6 @@ export default function TrackingClient({ orders }: Props) {
                                                   "Completed flights cannot be modified.",
                                                 variant: "destructive",
                                               });
-
                                               return;
                                             }
                                             // BLOCK SAME STATUS
@@ -771,7 +794,6 @@ export default function TrackingClient({ orders }: Props) {
                                                 description:
                                                   "This workflow step is already active.",
                                               });
-
                                               return;
                                             }
 
@@ -787,36 +809,35 @@ export default function TrackingClient({ orders }: Props) {
                                                   "This order can no longer be modified.",
                                                 variant: "destructive",
                                               });
-
                                               return;
                                             }
 
                                             confirmStatusChange(order, status);
                                           }}
                                           disabled={loadingId === order.id}
-                                          className="relative flex flex-col items-center gap-1.5 group transition-all focus:outline-none"
+                                          className="flex w-full flex-row items-center gap-4 text-left outline-none transition-all sm:w-auto sm:flex-col sm:gap-2 sm:text-center"
                                         >
                                           <div
                                             className={cn(
-                                              "w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all",
+                                              "relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 bg-white transition-all sm:h-8 sm:w-8",
                                               isStepCompleted
-                                                ? "bg-[#1868A5] border-[#1868A5]"
+                                                ? "border-[#1868A5] bg-[#1868A5]"
                                                 : isStepActive
-                                                  ? "bg-white border-[#1868A5] ring-4 ring-[#1868A5]/15"
-                                                  : "bg-white border-slate-200 group-hover:border-[#1868A5]/40",
+                                                  ? "border-[#1868A5] ring-4 ring-[#1868A5]/15"
+                                                  : "border-slate-200 group-hover:border-[#1868A5]/40",
                                             )}
                                           >
                                             {isStepCompleted ? (
-                                              <CheckCircle2 className="w-4 h-4 text-white" />
+                                              <CheckCircle2 className="h-4 w-4 text-white" />
                                             ) : isStepActive ? (
-                                              <div className="w-2.5 h-2.5 rounded-full bg-[#1868A5]" />
+                                              <div className="h-2.5 w-2.5 rounded-full bg-[#1868A5]" />
                                             ) : (
-                                              <Circle className="w-3 h-3 text-slate-300 group-hover:text-[#1868A5]/40" />
+                                              <Circle className="h-3 w-3 text-slate-300 group-hover:text-[#1868A5]/40" />
                                             )}
                                           </div>
                                           <span
                                             className={cn(
-                                              "text-[9px] sm:text-[10px] font-semibold whitespace-normal hidden sm:block text-center leading-tight w-[60px]",
+                                              "text-[12px] font-bold leading-tight whitespace-nowrap sm:w-[60px] sm:whitespace-normal sm:text-[10px] sm:font-semibold",
                                               isStepCompleted || isStepActive
                                                 ? "text-[#1868A5]"
                                                 : "text-slate-400",
@@ -825,27 +846,17 @@ export default function TrackingClient({ orders }: Props) {
                                             {stepShortLabel[status] ?? status}
                                           </span>
                                         </button>
-                                        {idx < statusFlow.length - 1 && (
-                                          <div
-                                            className={cn(
-                                              "flex-1 h-0.5 mx-1 rounded-full transition-colors mb-5",
-                                              currentStep > idx
-                                                ? "bg-[#1868A5]"
-                                                : "bg-slate-200",
-                                            )}
-                                          />
-                                        )}
                                       </div>
                                     );
                                   })}
                                 </div>
 
+                                {/* ACTIONS */}
                                 {isSentToVendor && (
-                                  <div className="pt-3 border-t border-slate-100">
+                                  <div className="border-t border-slate-100 pt-4">
                                     <Button
                                       onClick={() => {
                                         setVendorDialog(order);
-
                                         const messages: Record<string, string> =
                                           {};
 
@@ -868,30 +879,22 @@ export default function TrackingClient({ orders }: Props) {
                                         setVendorMessages(messages);
                                       }}
                                       variant="outline"
-                                      className="h-9 px-4 rounded-xl border border-violet-200 text-violet-600 text-xs font-semibold hover:bg-violet-50 transition-all"
+                                      className="h-10 w-full rounded-xl border border-violet-200 px-4 text-xs font-semibold text-violet-600 transition-all hover:bg-violet-50 sm:h-9 sm:w-auto"
                                     >
-                                      <Send className="w-3.5 h-3.5 mr-2" />
+                                      <Send className="mr-2 h-3.5 w-3.5" />
                                       Send to Vendor
                                     </Button>
                                   </div>
                                 )}
+
                                 {isDelivered && (
-                                  <div className="pt-3 border-t border-slate-100">
+                                  <div className="border-t border-slate-100 pt-4">
                                     <Link
                                       href={`/inventory?flightId=${order.id}&tab=onboard`}
+                                      className="block w-full sm:w-auto"
                                     >
-                                      <Button
-                                        className="
-          h-10
-          rounded-xl
-          bg-[#1868A5]
-          hover:bg-[#145588]
-          text-white
-          text-xs
-          font-semibold
-        "
-                                      >
-                                        <Package className="w-4 h-4 mr-2" />
+                                      <Button className="h-10 w-full rounded-xl bg-[#1868A5] text-xs font-semibold text-white hover:bg-[#145588] sm:w-auto">
+                                        <Package className="mr-2 h-4 w-4" />
                                         Add Onboard Item
                                       </Button>
                                     </Link>
@@ -899,35 +902,25 @@ export default function TrackingClient({ orders }: Props) {
                                 )}
 
                                 {isOnBoard && (
-                                  <div className="pt-3 border-t border-slate-100">
+                                  <div className="border-t border-slate-100 pt-4">
                                     <Link
                                       href={`/inventory?flightId=${order.id}&tab=deboard`}
+                                      className="block w-full sm:w-auto"
                                     >
-                                      <Button
-                                        className="
-          h-10
-          rounded-xl
-          bg-emerald-600
-          hover:bg-emerald-700
-          text-white
-          text-xs
-          font-semibold
-        "
-                                      >
-                                        <RefreshCcw className="w-4 h-4 mr-2" />
+                                      <Button className="h-10 w-full rounded-xl bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 sm:w-auto">
+                                        <RefreshCcw className="mr-2 h-4 w-4" />
                                         Add Deboard Item
                                       </Button>
-                                    </Link>
+                                    </Link> 
                                   </div>
                                 )}
 
                                 {isDeBoard && (
-                                  <div className="pt-3 border-t border-slate-100">
+                                  <div className="border-t border-slate-100 pt-4">
                                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                                       <p className="text-sm font-semibold text-emerald-700">
                                         Deboard completed successfully.
                                       </p>
-
                                       <p className="mt-1 text-xs text-emerald-600">
                                         Flight is ready for final completion.
                                       </p>
@@ -935,18 +928,18 @@ export default function TrackingClient({ orders }: Props) {
                                   </div>
                                 )}
 
-                                <div className="flex gap-2 pt-1">
+                                <div className="flex w-full gap-2 pt-2">
                                   <button
                                     onClick={() => setRejectingOrder(order)}
                                     disabled={loadingId === order.id}
-                                    className="h-9 px-4 rounded-xl border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-all"
+                                    className="h-10 flex-1 rounded-xl border border-red-200 px-4 text-xs font-semibold text-red-600 transition-all hover:bg-red-50 sm:h-9 sm:flex-none sm:w-auto"
                                   >
                                     Reject
                                   </button>
                                   <button
                                     onClick={() => setCancellingOrder(order)}
                                     disabled={loadingId === order.id}
-                                    className="h-9 px-4 rounded-xl border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all"
+                                    className="h-10 flex-1 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-500 transition-all hover:bg-slate-50 sm:h-9 sm:flex-none sm:w-auto"
                                   >
                                     Cancel
                                   </button>

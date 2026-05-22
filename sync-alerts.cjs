@@ -16,7 +16,7 @@ async function syncAlerts() {
     if (item.type !== 'grocery') continue;
     
     // threshold logic from lib/inventory/threshold.ts
-    let threshold = item.reorderThresholdValue || 5;
+    let threshold = item.reorderThresholdValue || 10;
     if (item.reorderThresholdType === 'PACK' && item.packEnabled && item.packSize) {
       threshold = item.reorderThresholdValue * item.packSize;
     }
@@ -33,7 +33,7 @@ async function syncAlerts() {
             locationId: warehouse.id,
             severity: 'LOW_STOCK',
             thresholdType: item.reorderThresholdType || 'UNIT',
-            thresholdValue: item.reorderThresholdValue || 5,
+            thresholdValue: item.reorderThresholdValue || 10,
             currentBaseUnits: bal.onHandBaseUnits
           }
         });
