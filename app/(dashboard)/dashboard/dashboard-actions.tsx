@@ -319,34 +319,12 @@ export default function DashboardActions() {
                 <div className="space-y-2">
                   <Label>Timezone</Label>
 
-                  <Select
-                    value={newFlight.timezone}
-                    onValueChange={(value) =>
-                      setNewFlight({
-                        ...newFlight,
-                        timezone: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="h-11 rounded-xl">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="IST (UTC+5:30)">
-                        IST (UTC+5:30)
-                      </SelectItem>
-                      <SelectItem value="GST (UTC+4)">GST (UTC+4)</SelectItem>
-
-                      <SelectItem value="UTC">UTC</SelectItem>
-
-                      <SelectItem value="CET (UTC+1)">CET (UTC+1)</SelectItem>
-
-                      <SelectItem value="EST (UTC-5)">EST (UTC-5)</SelectItem>
-
-                      <SelectItem value="PST (UTC-8)">PST (UTC-8)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    value="IST (UTC+5:30)"
+                    readOnly
+                    disabled
+                    className="h-11 rounded-xl bg-slate-200 text-black "
+                  />
                 </div>
               </div>
 

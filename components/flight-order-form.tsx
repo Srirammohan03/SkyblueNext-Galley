@@ -1037,24 +1037,48 @@ export default function FlightOrderForm({
 
               <CardContent className="p-6 md:p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* DELIVERY DATE */}
                   <div className="space-y-2">
                     <Label>Delivery Date</Label>
 
                     <Input
                       type="date"
-                      {...register("deliveryDate")}
+                      {...register("deliveryDate", {
+                        required:
+                          watchItems.length > 0
+                            ? "Delivery date is required"
+                            : false,
+                      })}
                       className="h-12 rounded-xl"
                     />
+
+                    {errors.deliveryDate && (
+                      <p className="text-sm font-medium text-red-500">
+                        {String(errors.deliveryDate.message)}
+                      </p>
+                    )}
                   </div>
 
+                  {/* DELIVERY TIME */}
                   <div className="space-y-2">
                     <Label>Delivery Time</Label>
 
                     <Input
                       type="time"
-                      {...register("deliveryTime")}
+                      {...register("deliveryTime", {
+                        required:
+                          watchItems.length > 0
+                            ? "Delivery time is required"
+                            : false,
+                      })}
                       className="h-12 rounded-xl"
                     />
+
+                    {errors.deliveryTime && (
+                      <p className="text-sm font-medium text-red-500">
+                        {String(errors.deliveryTime.message)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>

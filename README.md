@@ -17,12 +17,6 @@
 
 ---
 
-## 🔐 Default Credentials
-- **Email**: `admin@skyblue.com`
-- **Password**: `***********`
-
----
-
 ## 📁 Project Structure
 ```
 /app          # App Router pages and API routes

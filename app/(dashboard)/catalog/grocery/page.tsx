@@ -1,10 +1,10 @@
 // app/(dashboard)/catalog/grocery/page.tsx
-"use client";
+
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GroceryStock from "../../inventory/catalog/GroceryStock";
 import GroceryOnboard from "./GroceryOnboard";
-
+export const dynamic = "force-dynamic";
 export default function GroceryPage() {
   return (
     <div className="p-4 sm:p-8">

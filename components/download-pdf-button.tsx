@@ -321,6 +321,21 @@ function OrderPDF({ order }: any) {
                 <Text style={styles.infoValue}>{order.dietaryNotes}</Text>
               </View>
             )}
+            {order.serviceStyleNotes && (
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Service Style Notes</Text>
+
+                <Text style={styles.infoValue}>{order.serviceStyleNotes}</Text>
+              </View>
+            )}
+            {order.specialInstructions && (
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Special Instructions</Text>
+                <Text style={styles.infoValue}>
+                  {order.specialInstructions}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
