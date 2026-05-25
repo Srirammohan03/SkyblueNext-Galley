@@ -355,6 +355,8 @@ export default function OnboardPage() {
   }, [rows]);
 
   const submitOnboard = async () => {
+    if (loading) return;
+
     try {
       const validRows = rows.filter((r) => r.finalQty > 0);
 
@@ -370,27 +372,25 @@ export default function OnboardPage() {
 
       setLoading(true);
 
-      await Promise.all(
-        validRows.map(async (row) => {
-          const res = await fetch("/api/inventory/onboard", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              catalogItemId: row.itemId,
-              flightId: selectedFlightId,
-              baseUnits: row.finalQty,
-            }),
-          });
+      for (const row of validRows) {
+        const res = await fetch("/api/inventory/onboard", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            catalogItemId: row.itemId,
+            flightId: selectedFlightId,
+            baseUnits: row.finalQty,
+          }),
+        });
 
-          if (!res.ok) {
-            const error = await res.json();
+        if (!res.ok) {
+          const error = await res.json();
 
-            throw new Error(error.error || "Failed onboard");
-          }
-        }),
-      );
+          throw new Error(error.error || `Failed onboard for ${row.name}`);
+        }
+      }
 
       toast({
         title: "Success",
