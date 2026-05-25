@@ -112,6 +112,10 @@ export async function POST(req: Request) {
 
     const parsedDate = new Date(date);
 
+    const parsedDepartureTime = date
+      ? date.split("T")[1]?.slice(0, 5)
+      : null;
+
     if (isNaN(parsedDate.getTime())) {
       return NextResponse.json(
         { error: "Invalid flight date" },
@@ -155,7 +159,7 @@ export async function POST(req: Request) {
 
         crewCount: Number(crewCount) || 1,
 
-        departureTime: departureTime || null,
+        departureTime: parsedDepartureTime,
 
         timezone: timezone || "IST",
 
@@ -176,37 +180,37 @@ export async function POST(req: Request) {
 
         items: {
           create: finalItems.map((item: any) => ({
-              itemId:
-                item.itemId && validCatalogItemIds.has(item.itemId)
-                  ? item.itemId
-                  : null,
+            itemId:
+              item.itemId && validCatalogItemIds.has(item.itemId)
+                ? item.itemId
+                : null,
 
-              vendorId:
-                item.vendorId && validVendorIds.has(item.vendorId)
-                  ? item.vendorId
-                  : null,
+            vendorId:
+              item.vendorId && validVendorIds.has(item.vendorId)
+                ? item.vendorId
+                : null,
 
-              name: item.name || "Custom Item",
+            name: item.name || "Custom Item",
 
-              type: item.type || "custom",
+            type: item.type || "custom",
 
-              quantity: Number(item.quantity) || 1,
+            quantity: Number(item.quantity) || 1,
 
-              notes: item.notes || "",
+            notes: item.notes || "",
 
-              unit: item.unit || "",
+            unit: item.unit || "",
 
-              category: item.category || "",
+            category: item.category || "",
 
-              price:
-                item.price !== undefined && item.price !== null
-                  ? Number(item.price)
-                  : null,
+            price:
+              item.price !== undefined && item.price !== null
+                ? Number(item.price)
+                : null,
 
-              dietaryTags: Array.isArray(item.dietaryTags)
-                ? item.dietaryTags
-                : [],
-            })),
+            dietaryTags: Array.isArray(item.dietaryTags)
+              ? item.dietaryTags
+              : [],
+          })),
         },
       },
 
@@ -254,16 +258,16 @@ export async function POST(req: Request) {
           let remainingRequested = Number(item.quantity);
 
           for (const ri of restoredPool) {
-             if (remainingRequested <= 0) break;
-             const orderItem = ri.flightOrder.items.find((i: any) => i.id === ri.itemId);
-             if (orderItem && orderItem.itemId === item.itemId) {
-                const deduct = Math.min(ri.returnedQty, remainingRequested);
-                await prisma.restoredItem.update({
-                  where: { id: ri.id },
-                  data: { returnedQty: ri.returnedQty - deduct }
-                });
-                remainingRequested -= deduct;
-             }
+            if (remainingRequested <= 0) break;
+            const orderItem = ri.flightOrder.items.find((i: any) => i.id === ri.itemId);
+            if (orderItem && orderItem.itemId === item.itemId) {
+              const deduct = Math.min(ri.returnedQty, remainingRequested);
+              await prisma.restoredItem.update({
+                where: { id: ri.id },
+                data: { returnedQty: ri.returnedQty - deduct }
+              });
+              remainingRequested -= deduct;
+            }
           }
           deductFromWarehouse = remainingRequested;
         } else {
@@ -274,7 +278,7 @@ export async function POST(req: Request) {
           const balanceId = `${warehouseLoc.id}_${item.itemId}`;
           const existing = await prisma.inventoryBalance.findUnique({ where: { id: balanceId } });
           const newQty = Math.max(0, (existing?.onHandBaseUnits ?? 0) - deductFromWarehouse);
-          
+
           await prisma.inventoryBalance.upsert({
             where: { id: balanceId },
             update: { onHandBaseUnits: newQty },
@@ -292,7 +296,7 @@ export async function POST(req: Request) {
           const balanceId = `${warehouseLoc.id}_${item.itemId}`;
           const existing = await prisma.inventoryBalance.findUnique({ where: { id: balanceId } });
           const newQty = Math.max(0, (existing?.onHandBaseUnits ?? 0) - Number(item.quantity));
-          
+
           await prisma.inventoryBalance.upsert({
             where: { id: balanceId },
             update: { onHandBaseUnits: newQty },
@@ -308,8 +312,8 @@ export async function POST(req: Request) {
             const thresholdType = catalogItem.reorderThresholdType;
             const thresholdValue = catalogItem.reorderThresholdValue;
             const packSize = catalogItem.packSize || 1;
-            const thresholdBaseUnits = (thresholdType === "PACK" && catalogItem.packEnabled) 
-              ? thresholdValue * packSize 
+            const thresholdBaseUnits = (thresholdType === "PACK" && catalogItem.packEnabled)
+              ? thresholdValue * packSize
               : thresholdValue;
 
             const isLow = newQty < Math.max(thresholdBaseUnits, 10);

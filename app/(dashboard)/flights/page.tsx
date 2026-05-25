@@ -152,29 +152,34 @@ export default function FlightsPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const getFlightDisplayDate = (flight: any) => {
+    if (flight.deliveryDate) {
+      const [year, month, day] = flight.deliveryDate.split("-");
+
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+
+    const rawDate = flight.date.split("T")[0];
+
+    const [year, month, day] = rawDate.split("-");
+
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  };
   const upcomingFlights = flights.filter((f: any) => {
-    if (!f.deliveryDate) return false;
-
-    const [year, month, day] = f.deliveryDate.split("-");
-
-    const flightDate = new Date(Number(year), Number(month) - 1, Number(day));
+    const flightDate = getFlightDisplayDate(f);
 
     return flightDate >= today;
   });
 
   const pastFlights = flights.filter((f: any) => {
-    if (!f.deliveryDate) return false;
-
-    const [year, month, day] = f.deliveryDate.split("-");
-
-    const flightDate = new Date(Number(year), Number(month) - 1, Number(day));
+    const flightDate = getFlightDisplayDate(f);
 
     return flightDate < today;
   });
-  const renderFlightCard = (flight: any) => {
-    const [year, month, day] = flight.deliveryDate.split("-");
 
-    const displayDate = new Date(Number(year), Number(month) - 1, Number(day));
+  const renderFlightCard = (flight: any) => {
+    const displayDate = getFlightDisplayDate(flight);
+
     return (
       <div
         key={flight.id}

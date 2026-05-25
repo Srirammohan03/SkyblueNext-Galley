@@ -188,7 +188,15 @@ export default function FlightOrderForm({
             ...initialData,
             date:
               initialData.date && initialData.departureTime
-                ? `${String(initialData.date).split("T")[0]}T${initialData.departureTime}`
+                ? (() => {
+                    const d = new Date(initialData.date);
+
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+
+                    return `${year}-${month}-${day}T${initialData.departureTime}`;
+                  })()
                 : "",
             items:
               initialData.items?.map((item: any) => ({

@@ -63,7 +63,9 @@ export async function PUT(
     }
 
     const body = await req.json();
-
+    const parsedDepartureTime = body.date
+      ? body.date.split("T")[1]?.slice(0, 5)
+      : null;
     const newItemIds = Array.isArray(body.items)
       ? body.items.map((item: any) => item.itemId).filter(Boolean)
       : [];
@@ -285,7 +287,7 @@ export async function PUT(
           date: body.date
             ? new Date(body.date)
             : new Date(),
-
+          departureTime: parsedDepartureTime,
           paxCount:
             Number(body.paxCount) || 1,
 
