@@ -186,18 +186,17 @@ export default function FlightOrderForm({
         if (initialData) {
           reset({
             ...initialData,
-            date:
-              initialData.date && initialData.departureTime
-                ? (() => {
-                    const d = new Date(initialData.date);
+            date: initialData.date
+              ? (() => {
+                  const d = new Date(initialData.date);
 
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, "0");
-                    const day = String(d.getDate()).padStart(2, "0");
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, "0");
+                  const day = String(d.getDate()).padStart(2, "0");
 
-                    return `${year}-${month}-${day}T${initialData.departureTime}`;
-                  })()
-                : "",
+                  return `${year}-${month}-${day}`;
+                })()
+              : "",
             items:
               initialData.items?.map((item: any) => ({
                 ...item,
@@ -655,11 +654,21 @@ export default function FlightOrderForm({
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Date & Time</Label>
+                    <Label>Date</Label>
 
                     <Input
-                      type="datetime-local"
+                      type="date"
                       {...register("date")}
+                      className="rounded-xl h-11"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Departure Time</Label>
+
+                    <Input
+                      type="time"
+                      {...register("departureTime")}
                       className="rounded-xl h-11"
                     />
                   </div>

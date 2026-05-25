@@ -112,9 +112,7 @@ export async function POST(req: Request) {
 
     const parsedDate = new Date(date);
 
-    const parsedDepartureTime = date
-      ? date.split("T")[1]?.slice(0, 5)
-      : null;
+    const parsedDepartureTime = departureTime || null;
 
     if (isNaN(parsedDate.getTime())) {
       return NextResponse.json(

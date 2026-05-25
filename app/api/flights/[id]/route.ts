@@ -287,7 +287,8 @@ export async function PUT(
           date: body.date
             ? new Date(body.date)
             : new Date(),
-          departureTime: parsedDepartureTime,
+          departureTime:
+            body.departureTime || null,
           paxCount:
             Number(body.paxCount) || 1,
 
