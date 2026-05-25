@@ -202,7 +202,7 @@ export async function POST(req: Request) {
 
                             vendorId: null,
 
-                            vendorName: "Aircraft Inventory",
+                            vendorName: "Grocery/Warehouse",
 
                             name: `${catalogItem.name} (ONBOARD)`,
 

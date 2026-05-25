@@ -40,7 +40,13 @@ export default function ReportsClient() {
   const [expandedVendorName, setExpandedVendorName] = useState<string | null>(
     null,
   );
+  const [expandedInventory, setExpandedInventory] = useState<string | null>(
+    null,
+  );
 
+  const toggleInventory = (name: string) => {
+    setExpandedInventory((prev) => (prev === name ? null : name));
+  };
   const toggleFlight = (id: string) => {
     setExpandedFlightId((prev) => (prev === id ? null : id));
   };
@@ -378,7 +384,7 @@ export default function ReportsClient() {
                   value="inventory"
                   className="flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm sm:flex-none sm:px-4 sm:text-sm"
                 >
-                  Global Inventory
+                  Warehouse Inventory
                 </TabsTrigger>
                 <TabsTrigger
                   value="vendors"
@@ -703,10 +709,10 @@ export default function ReportsClient() {
                                   <div>
                                     <div className="border-t border-dashed border-gray-300 mb-6"></div>
                                     <h4 className="text-sm font-bold text-gray-900 mb-1">
-                                      Restored Items
+                                      Deboarded items
                                     </h4>
                                     <p className="text-xs text-gray-500 mb-4">
-                                      Returned / restored onboard items
+                                      Restored onboard items
                                     </p>
 
                                     {/* WRAPPER: Added 'w-full overflow-x-auto' to prevent layout break */}
@@ -847,32 +853,138 @@ export default function ReportsClient() {
                         ) : (
                           data
                             ?.filter((item: any) => item.totalConsumed > 0)
-                            .map((item: any, idx: number) => (
-                              <tr
-                                key={idx}
-                                className="hover:bg-gray-50/50 transition-colors"
-                              >
-                                <td className="px-6 py-4 font-medium text-gray-900">
-                                  {item.name}
-                                </td>
-                                <td className="px-6 py-4 text-right text-gray-600">
-                                  {item.totalLoaded}
-                                </td>
-                                {inventoryType === "grocery" && (
-                                  <td className="px-6 py-4 text-right text-gray-600">
-                                    {item.totalRestored}
-                                  </td>
-                                )}
-                                <td className="px-6 py-4 text-right font-bold text-blue-600">
-                                  {item.totalConsumed}
-                                </td>
-                                <td className="px-6 py-4 text-right text-gray-500">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600">
-                                    {item.flightsUsed} flights
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
+                            .map((item: any, idx: number) => {
+                              const expanded = expandedInventory === item.name;
+
+                              return (
+                                <>
+                                  {/* MAIN ROW */}
+                                  <tr
+                                    key={idx}
+                                    className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                    onClick={() => toggleInventory(item.name)}
+                                  >
+                                    <td className="px-6 py-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="font-medium text-gray-900">
+                                          {item.name}
+                                        </div>
+
+                                        <div className="text-gray-400">
+                                          {expanded ? (
+                                            <ChevronUp className="h-4 w-4" />
+                                          ) : (
+                                            <ChevronDown className="h-4 w-4" />
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+
+                                    <td className="px-6 py-4 text-right text-gray-600">
+                                      {item.totalLoaded}
+                                    </td>
+
+                                    {inventoryType === "grocery" && (
+                                      <td className="px-6 py-4 text-right text-gray-600">
+                                        {item.totalRestored}
+                                      </td>
+                                    )}
+
+                                    <td className="px-6 py-4 text-right font-bold text-blue-600">
+                                      {item.totalConsumed}
+                                    </td>
+
+                                    <td className="px-6 py-4 text-right text-gray-500">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600">
+                                        {item.flightsUsed} flights
+                                      </span>
+                                    </td>
+                                  </tr>
+
+                                  {/* EXPANDED FLIGHT DETAILS */}
+                                  {expanded && (
+                                    <tr>
+                                      <td
+                                        colSpan={
+                                          inventoryType === "grocery" ? 5 : 4
+                                        }
+                                        className="bg-slate-50 px-6 py-5"
+                                      >
+                                        <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
+                                              <tr>
+                                                <th className="px-4 py-3 text-left">
+                                                  Flight
+                                                </th>
+
+                                                <th className="px-4 py-3 text-left">
+                                                  Route
+                                                </th>
+
+                                                <th className="px-4 py-3 text-right">
+                                                  Onboarded
+                                                </th>
+
+                                                <th className="px-4 py-3 text-right">
+                                                  Deboarded
+                                                </th>
+
+                                                <th className="px-4 py-3 text-right">
+                                                  Consumed
+                                                </th>
+                                              </tr>
+                                            </thead>
+
+                                            <tbody className="divide-y divide-slate-100">
+                                              {item.flights?.length > 0 ? (
+                                                item.flights.map(
+                                                  (flight: any, i: number) => (
+                                                    <tr
+                                                      key={i}
+                                                      className="hover:bg-slate-50"
+                                                    >
+                                                      <td className="px-4 py-3 font-semibold text-slate-900">
+                                                        {flight.flightNumber}
+                                                      </td>
+
+                                                      <td className="px-4 py-3 text-slate-600">
+                                                        {flight.route}
+                                                      </td>
+
+                                                      <td className="px-4 py-3 text-right font-medium">
+                                                        {flight.onboarded}
+                                                      </td>
+
+                                                      <td className="px-4 py-3 text-right text-green-600 font-semibold">
+                                                        {flight.restored}
+                                                      </td>
+
+                                                      <td className="px-4 py-3 text-right text-blue-600 font-bold">
+                                                        {flight.consumed}
+                                                      </td>
+                                                    </tr>
+                                                  ),
+                                                )
+                                              ) : (
+                                                <tr>
+                                                  <td
+                                                    colSpan={5}
+                                                    className="px-4 py-6 text-center text-slate-500"
+                                                  >
+                                                    No flight data found
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </>
+                              );
+                            })
                         )}
                       </tbody>
                     </table>

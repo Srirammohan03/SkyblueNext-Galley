@@ -83,9 +83,61 @@ export async function GET(request: Request) {
             },
           });
 
-        const restoredItems =
-          await prisma.restoredItem.findMany();
+        const flightIds = [
+          ...new Set(
+            transactions
+              .map((tx) => tx.flightId)
+              .filter(Boolean)
+          ),
+        ];
 
+        const flights =
+          await prisma.flightOrder.findMany({
+            where: {
+              id: {
+                in: flightIds as string[],
+              },
+            },
+
+            select: {
+              id: true,
+              flightNumber: true,
+              departure: true,
+              arrival: true,
+              date: true,
+            },
+          });
+
+        const flightsMap =
+          Object.fromEntries(
+            flights.map((f) => [f.id, f])
+          );
+        const restoredItems =
+          await prisma.restoredItem.findMany({
+
+            where: {
+              ...(Object.keys(dateFilter).length > 0
+                ? {
+                  restoredAt: dateFilter,
+                }
+                : {}),
+            },
+
+            include: {
+
+              flightOrder: {
+
+                include: {
+
+                  items: true,
+
+                },
+
+              },
+
+            },
+
+          });
         const balances =
           warehouse
             ? await prisma.inventoryBalance.findMany({
@@ -112,23 +164,26 @@ export async function GET(request: Request) {
               );
 
           // TOTAL RESTORED
+          const relatedRestored = restoredItems.filter((ri) => {
+
+            const relatedOrderItem =
+              ri.flightOrder?.items?.find(
+                (i) => i.id === ri.itemId
+              );
+
+            if (!relatedOrderItem) {
+              return false;
+            }
+
+            return relatedOrderItem.itemId === item.id;
+          });
+
           const totalRestored =
-            restoredItems.reduce((sum, ri) => {
-
-              const relatedTx =
-                transactions.find(
-                  (tx) =>
-                    tx.flightId === ri.flightOrderId &&
-                    tx.itemId === item.id
-                );
-
-              if (!relatedTx) {
-                return sum;
-              }
-
-              return sum + ri.returnedQty;
-
-            }, 0);
+            relatedRestored.reduce(
+              (sum, ri) =>
+                sum + Number(ri.returnedQty || 0),
+              0
+            );
 
           // TOTAL CONSUMED
           const totalConsumed =
@@ -137,12 +192,12 @@ export async function GET(request: Request) {
           // FLIGHTS USED
           const flightsUsed =
             new Set(
-              transactions
-                .filter(
-                  (tx) =>
-                    tx.itemId === item.id &&
-                    tx.flightId
-                )
+              transactions.filter(
+                (tx) =>
+                  tx.itemId === item.id &&
+                  tx.flightId &&
+                  tx.type === "TRANSFER"
+              )
                 .map(
                   (tx) => tx.flightId
                 )
@@ -154,6 +209,77 @@ export async function GET(request: Request) {
               (b) =>
                 b.itemId === item.id
             )?.onHandBaseUnits || 0;
+          const flightMap: Record<string, any> = {};
+
+          transactions
+            .filter(
+              (tx) =>
+                tx.itemId === item.id &&
+                tx.flightId
+            )
+            .forEach((tx) => {
+
+              if (!flightMap[tx.flightId!]) {
+                flightMap[tx.flightId!] = {
+                  flightId: tx.flightId,
+
+                  flightNumber:
+                    flightsMap[tx.flightId!]
+                      ?.flightNumber || "N/A",
+
+                  route:
+                    flightsMap[tx.flightId!]
+                      ? `${flightsMap[tx.flightId!].departure} → ${flightsMap[tx.flightId!].arrival}`
+                      : "N/A",
+
+                  date:
+                    flightsMap[tx.flightId!]
+                      ?.date || null,
+                  onboarded: 0,
+                  restored: 0,
+                  consumed: 0,
+                };
+              }
+
+              if (tx.type === "TRANSFER") {
+                flightMap[tx.flightId!].onboarded += tx.baseUnits;
+              }
+            });
+
+          relatedRestored.forEach((ri) => {
+
+            if (!flightMap[ri.flightOrderId]) {
+
+              flightMap[ri.flightOrderId] = {
+
+                flightId: ri.flightOrderId,
+
+                flightNumber:
+                  ri.flightOrder?.flightNumber || "N/A",
+
+                route:
+                  ri.flightOrder
+                    ? `${ri.flightOrder.departure} → ${ri.flightOrder.arrival}`
+                    : "N/A",
+
+                date:
+                  ri.flightOrder?.date || null,
+
+                onboarded: 0,
+
+                restored: 0,
+
+                consumed: 0,
+              };
+            }
+            flightMap[ri.flightOrderId].restored +=
+              Number(ri.returnedQty || 0);
+          });
+
+          Object.values(flightMap).forEach((f: any) => {
+            f.consumed =
+              Math.max(f.onboarded - f.restored, 0);
+          });
 
           return {
             name: item.name,
@@ -166,8 +292,9 @@ export async function GET(request: Request) {
 
             flightsUsed,
 
-            currentWarehouseStock:
-              stock,
+            currentWarehouseStock: stock,
+
+            flights: Object.values(flightMap),
           };
         });
 
@@ -268,15 +395,28 @@ export async function GET(request: Request) {
     if (reportType === "vendors") {
       const items = await prisma.orderItem.findMany({
         where: {
-          vendorName: { not: null, contains: search, mode: "insensitive" },
+          type: "food",
+
+          vendorName: {
+            not: null,
+            contains: search,
+            mode: "insensitive",
+          },
+
           order: {
-            status: { in: ["Completed", "Delivered"] },
-            ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
-          }
+            status: {
+              in: ["Completed", "Delivered"],
+            },
+
+            ...(Object.keys(dateFilter).length > 0
+              ? { date: dateFilter }
+              : {}),
+          },
         },
+
         include: {
           order: true,
-        }
+        },
       });
 
       // Group by vendorName
