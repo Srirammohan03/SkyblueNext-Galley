@@ -250,6 +250,9 @@ export async function POST(req: Request) {
                 return {
                     onboard: onboardRecord,
                 };
+            },
+            {
+                timeout: 20000,
             });
         // revalidatePath(`/flights/${flightId}`);
         // revalidatePath("/flights");

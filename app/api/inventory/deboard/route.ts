@@ -1,19 +1,20 @@
-// app\api\inventory\deboard\route.ts
+// app/api/inventory/deboard/route.ts
+
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 export async function POST(req: Request) {
-    const session = await auth();
-
-    if (!session?.user) {
-        return NextResponse.json(
-            { error: "Unauthorized" },
-            { status: 401 },
-        );
-    }
-
     try {
+        const session = await auth();
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 },
+            );
+        }
+
         const body = await req.json();
 
         const { flightId, items } = body;
@@ -25,104 +26,144 @@ export async function POST(req: Request) {
             );
         }
 
-        await prisma.$transaction(async (tx) => {
-            const flight = await tx.flightOrder.findUnique({
+        // READS OUTSIDE TRANSACTION
+        const flight =
+            await prisma.flightOrder.findUnique({
                 where: {
                     id: flightId,
                 },
             });
 
-            if (!flight) {
-                throw new Error("Flight not found");
-            }
+        if (!flight) {
+            throw new Error("Flight not found");
+        }
 
-            for (const item of items) {
-                const usedQty = Number(item.usedQty || 0);
+        // FETCH ALL ONBOARD ITEMS ONCE
+        const onboardItems =
+            await prisma.orderItem.findMany({
+                where: {
+                    orderId: flightId,
 
-                const remainingQty = Number(item.remainingQty || 0);
+                    name: {
+                        contains: "(ONBOARD)",
+                    },
+                },
+            });
 
-                // STORE CONSUMED INVENTORY
-                if (usedQty > 0) {
-                    await tx.inventoryTransaction.create({
-                        data: {
-                            createdBy: (session.user as any).id,
+        await prisma.$transaction(
+            async (tx) => {
+                for (const item of items) {
+                    const usedQty = Number(
+                        item.usedQty || 0,
+                    );
 
-                            type: "CONSUME",
+                    const remainingQty = Number(
+                        item.remainingQty || 0,
+                    );
 
-                            itemId: item.itemId,
+                    // USED INVENTORY
+                    if (usedQty > 0) {
+                        await tx.inventoryTransaction.create(
+                            {
+                                data: {
+                                    createdBy:
+                                        (session.user as any)
+                                            .id,
 
-                            baseUnits: usedQty,
+                                    type: "CONSUME",
 
-                            flightId,
+                                    itemId: item.itemId,
 
-                            note: JSON.stringify({
-                                action: "DEBOARD_USED",
-                            }),
-                        },
-                    });
-                }
+                                    baseUnits:
+                                        usedQty,
 
-                // STORE REUSABLE STOCK
-                if (remainingQty > 0) {
-                    await tx.inventoryTransaction.create({
-                        data: {
-                            createdBy: (session.user as any).id,
+                                    flightId,
 
-                            type: "ADJUST",
-
-                            itemId: item.itemId,
-
-                            baseUnits: remainingQty,
-
-                            flightId,
-
-                            note: JSON.stringify({
-                                action: "DEBOARD_REMAINING",
-                            }),
-                        },
-                    });
-
-                    // SAVE TO RESTORED POOL
-                    const onboardOrderItem =
-                        await tx.orderItem.findFirst({
-                            where: {
-                                orderId: flightId,
-
-                                itemId: item.itemId,
-
-                                name: {
-                                    contains: "(ONBOARD)",
+                                    note: JSON.stringify(
+                                        {
+                                            action:
+                                                "DEBOARD_USED",
+                                        },
+                                    ),
                                 },
                             },
-                        });
+                        );
+                    }
 
-                    if (onboardOrderItem) {
-                        await tx.restoredItem.create({
-                            data: {
-                                flightOrderId: flightId,
+                    // REMAINING INVENTORY
+                    if (remainingQty > 0) {
+                        await tx.inventoryTransaction.create(
+                            {
+                                data: {
+                                    createdBy:
+                                        (session.user as any)
+                                            .id,
 
-                                itemId: onboardOrderItem.id,
+                                    type: "ADJUST",
 
-                                returnedQty: remainingQty,
+                                    itemId: item.itemId,
 
-                                restoredBy: (session.user as any).id,
+                                    baseUnits:
+                                        remainingQty,
+
+                                    flightId,
+
+                                    note: JSON.stringify(
+                                        {
+                                            action:
+                                                "DEBOARD_REMAINING",
+                                        },
+                                    ),
+                                },
                             },
-                        });
+                        );
+
+                        // FIND FROM MEMORY
+                        const onboardOrderItem =
+                            onboardItems.find(
+                                (oi) =>
+                                    oi.itemId ===
+                                    item.itemId,
+                            );
+
+                        if (onboardOrderItem) {
+                            await tx.restoredItem.create(
+                                {
+                                    data: {
+                                        flightOrderId:
+                                            flightId,
+
+                                        itemId:
+                                            onboardOrderItem.id,
+
+                                        returnedQty:
+                                            remainingQty,
+
+                                        restoredBy:
+                                            (session.user as any)
+                                                .id,
+                                    },
+                                },
+                            );
+                        }
                     }
                 }
-            }
 
-            // UPDATE FLIGHT STATUS
-            await tx.flightOrder.update({
-                where: {
-                    id: flightId,
-                },
+                // UPDATE STATUS
+                await tx.flightOrder.update({
+                    where: {
+                        id: flightId,
+                    },
 
-                data: {
-                    status: "DeBoard",
-                },
-            });
-        });
+                    data: {
+                        status: "DeBoard",
+                    },
+                });
+            },
+            {
+                timeout: 20000,
+            },
+        );
 
         return NextResponse.json({
             success: true,
