@@ -25,8 +25,17 @@ export default function FlightsPage() {
 
   const [errors, setErrors] = useState<any>({});
   const router = useRouter();
+  const getLocalDate = () => {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
   const emptyFlight = {
-    date: new Date().toISOString().slice(0, 10),
+    date: getLocalDate(),
     departureTime: "",
     departure: "",
     arrival: "",
@@ -42,7 +51,7 @@ export default function FlightsPage() {
     status: "Draft",
   };
   const [newFlight, setNewFlight] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: getLocalDate(),
     departureTime: "",
     departure: "",
     arrival: "",
@@ -140,11 +149,32 @@ export default function FlightsPage() {
       setSaving(false);
     }
   };
-  const upcomingFlights = flights.filter((f) => new Date(f.date) >= new Date());
-  const pastFlights = flights.filter((f) => new Date(f.date) < new Date());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
+  const upcomingFlights = flights.filter((f: any) => {
+    if (!f.deliveryDate) return false;
+
+    const [year, month, day] = f.deliveryDate.split("-");
+
+    const flightDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+    return flightDate >= today;
+  });
+
+  const pastFlights = flights.filter((f: any) => {
+    if (!f.deliveryDate) return false;
+
+    const [year, month, day] = f.deliveryDate.split("-");
+
+    const flightDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+    return flightDate < today;
+  });
   const renderFlightCard = (flight: any) => {
-    const date = new Date(flight.date);
+    const [year, month, day] = flight.deliveryDate.split("-");
+
+    const displayDate = new Date(Number(year), Number(month) - 1, Number(day));
     return (
       <div
         key={flight.id}
@@ -153,10 +183,11 @@ export default function FlightsPage() {
         <div className="flex items-center gap-4 sm:gap-6">
           <div className="text-center w-12 sm:w-16 shrink-0">
             <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-semibold">
-              {date.toLocaleString("default", { month: "short" })}
+              {displayDate.toLocaleString("default", { month: "short" })}
             </p>
+
             <p className="text-xl sm:text-2xl font-bold text-slate-900">
-              {date.getDate()}
+              {displayDate.getDate()}
             </p>
           </div>
           <div>
@@ -212,13 +243,8 @@ export default function FlightsPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500">
-              {flight.departureTime ||
-                date.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}{" "}
-              • {flight.paxCount} pax • {flight.crewCount} crew •{" "}
-              {flight.tailNumber}
+              {flight.departureTime} • {flight.paxCount} pax •{" "}
+              {flight.crewCount} crew • {flight.tailNumber}
             </p>
           </div>
         </div>

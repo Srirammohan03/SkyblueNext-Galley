@@ -61,7 +61,7 @@ const NavItem = ({
       <Icon
         className={cn(
           "w-5 h-5 shrink-0 transition-transform group-hover:scale-110",
-          isActive && "text-white",
+          isActive && "text-[#F27C22]",
         )}
       />
       {!isCollapsed && (
@@ -304,16 +304,34 @@ export default function DashboardLayout({
             <span className="ml-3 text-sm font-medium">Sign Out</span>
           )}
         </Button>
-        <p className="mt-10 text-center text-sm text-gray-500 lg:hidden">
-          © {new Date().getFullYear()} RS Fisheries. All rights reserved.{" "}
-          Powered by{" "}
-          <Link
-            href="https://www.outrightcreators.com/"
-            className="font-medium text-[#139BC3] hover:underline"
-          >
-            Outright Creators
-          </Link>
-        </p>
+        <div
+          className={cn(
+            "border-t border-white/10 text-center",
+            isCollapsed && "hidden",
+          )}
+        >
+          <p className="text-[11px] leading-relaxed text-white/50">
+            © {new Date().getFullYear()} SkyBlue Galley All rights reserved.
+          </p>
+
+          <div className="mt-1 flex items-center justify-center gap-1 text-[11px] text-white/50">
+            <span>Powered by</span>
+
+            <Link
+              href="https://www.outrightcreators.com/"
+              target="_blank"
+              className="
+        font-semibold
+        text-[#F27C22]
+        hover:text-white
+        transition-colors
+        duration-200
+      "
+            >
+              Outright Creators
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
